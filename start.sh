@@ -1,0 +1,1 @@
+python2.7 -W ignore ./main.py
