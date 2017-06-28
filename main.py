@@ -3,6 +3,7 @@
 
 import curses
 from src.util import root
+import sys
 
 
 class Element(object):
@@ -76,7 +77,7 @@ class Main(object):
 
         # Create and draw structures
         # test_dict = root.get_simple_dict()
-        test_dict = root.generate_data_dict("/home/krzysiek/MEGA/studia/inżynierka/data/AOD.08382725._000001.pool.root.1")
+        test_dict = root.generate_data_dict(sys.argv[1])
         self.structures = Element.create_elements_structure(test_dict, 0)
         self.draw_all_structures()
         self.actual_y = 0
