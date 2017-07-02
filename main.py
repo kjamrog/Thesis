@@ -93,7 +93,8 @@ class Main(object):
 
         while True:
             event = self.screen.getch()
-            if event == ord("q"): break
+            if event == ord("q"):
+                break
 
             if event == curses.KEY_DOWN:
                 if self.actual_y < len(self.lines) - 1:
@@ -144,6 +145,7 @@ class Main(object):
 
         curses.endwin()
         self.print_results()
+        self.save_results(sys.argv[2], 'xAOD::AuxContainerBase')
 
     def draw_structure(self, structure, y):
         mark_character = ' '
@@ -225,6 +227,17 @@ class Main(object):
                 name = item.parent.name + '.' + name
                 item = item.parent
             print(name)
+
+    def save_results(self, path, container_name):
+        f = open(path, 'w')
+        f.write('obj = MSMgr.GetStream(0)\n')
+        for item in self.chosen_items:
+            name = item.name
+            while item.parent:
+                name = item.parent.name + '.' + name
+                item = item.parent
+            f.write('obj.AddItem("' + container_name + '#' + name + '")\n')
+        f.close()
 
 
 curses.wrapper(Main)
