@@ -79,6 +79,9 @@ class Main(object):
         # test_dict = root.get_simple_dict()
         test_dict = root.generate_data_dict(sys.argv[1])
         self.structures = Element.create_elements_structure(test_dict, 0)
+        # for i in self.structures:
+        #     i.selected = True
+        #     self.chosen_items.add(i)
         self.draw_all_structures()
         self.actual_y = 0
 
@@ -145,7 +148,7 @@ class Main(object):
 
         curses.endwin()
         self.print_results()
-        self.save_results(sys.argv[2], 'xAOD::AuxContainerBase')
+        self.save_results(sys.argv[2])
 
     def draw_structure(self, structure, y):
         mark_character = ' '
@@ -228,15 +231,18 @@ class Main(object):
                 item = item.parent
             print(name)
 
-    def save_results(self, path, container_name):
+    def save_results(self, path):
         f = open(path, 'w')
         f.write('obj = MSMgr.GetStream(0)\n')
+        f.write('items = (obj.GetItems())[:]\n')
+        f.write('for i in items:\n')
+        f.write('\tobj.RemoveItem(i)\n')
         for item in self.chosen_items:
             name = item.name
             while item.parent:
                 name = item.parent.name + '.' + name
                 item = item.parent
-            f.write('obj.AddItem("' + container_name + '#' + name + '")\n')
+            f.write('obj.AddItem("' + name + '")\n')
         f.close()
 
 

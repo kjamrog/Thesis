@@ -24,11 +24,11 @@ def load_data_file(path):
 
 
 def get_names_arrays(data_file, splitting_regexp):
-    return map(lambda x: re.split(splitting_regexp, x.GetName()), data_file.CollectionTree.GetListOfBranches())
+    return map(lambda x: re.split(splitting_regexp, x.GetClassName() + '#' + x.GetName()), data_file.CollectionTree.GetListOfBranches())
 
 
 def generate_data_dict(path):
-    names_arrays = get_names_arrays(load_data_file(path), '[.,_]')
+    names_arrays = get_names_arrays(load_data_file(path), '[.]')
     data_dict = {}
     for array in names_arrays:
         element = data_dict
