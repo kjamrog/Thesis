@@ -3,6 +3,7 @@
 
 import ROOT
 import re
+import pickle
 
 
 def get_simple_dict():
@@ -23,8 +24,25 @@ def load_data_file(path):
     return ROOT.TFile.Open(path)
 
 
+def load_names_dict(dict_path):
+    dict_file = open(dict_path, 'rb')
+    names = pickle.load(dict_file)
+    dict_file.close()
+    return names
+
+
+def get_class_name(branch, names_dict):
+    # return re.sub('_v[1-9]', '', branch.GetClassName())
+    original_name = branch.GetClassName()
+    if original_name in names_dict:
+        return names_dict[original_name]
+    else:
+        return original_name
+
+
 def get_names_arrays(data_file, splitting_regexp):
-    return map(lambda x: re.split(splitting_regexp, x.GetClassName() + '#' + x.GetName()), data_file.CollectionTree.GetListOfBranches())
+    names_dict = load_names_dict('./container_names.pkl')
+    return map(lambda x: re.split(splitting_regexp, get_class_name(x) + '#' + x.GetName()), data_file.CollectionTree.GetListOfBranches())
 
 
 def generate_data_dict(path):

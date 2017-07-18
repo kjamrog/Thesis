@@ -79,9 +79,11 @@ class Main(object):
         # test_dict = root.get_simple_dict()
         test_dict = root.generate_data_dict(sys.argv[1])
         self.structures = Element.create_elements_structure(test_dict, 0)
-        # for i in self.structures:
-        #     i.selected = True
-        #     self.chosen_items.add(i)
+
+        for i in self.structures:
+            i.selected = True
+            self.chosen_items.add(i)
+
         self.draw_all_structures()
         self.actual_y = 0
 
@@ -230,6 +232,7 @@ class Main(object):
                 name = item.parent.name + '.' + name
                 item = item.parent
             print(name)
+        print(len(self.structures))
 
     def save_results(self, path):
         f = open(path, 'w')
