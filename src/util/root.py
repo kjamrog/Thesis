@@ -33,16 +33,20 @@ def load_names_dict(dict_path):
 
 def get_class_name(branch, names_dict):
     # return re.sub('_v[1-9]', '', branch.GetClassName())
-    original_name = branch.GetClassName()
-    if original_name in names_dict:
-        return names_dict[original_name]
-    else:
-        return original_name
+    class_name = branch.GetClassName()
+    name = branch.GetName()
+    if 'aux' in name or 'Aux' in name or class_name.startswith('vector') or not class_name:
+        class_name = 'xAOD::AuxContainerBase'
+    elif class_name in names_dict:
+        class_name = names_dict[class_name]
+    if not class_name.startswith('xAOD::'):
+        class_name = 'xAOD::' + class_name
+    return re.sub('_v[1-9]', '', class_name)
 
 
 def get_names_arrays(data_file, splitting_regexp):
     names_dict = load_names_dict('./container_names.pkl')
-    return map(lambda x: re.split(splitting_regexp, get_class_name(x) + '#' + x.GetName()), data_file.CollectionTree.GetListOfBranches())
+    return map(lambda x: re.split(splitting_regexp, get_class_name(x, names_dict) + '#' + x.GetName()), data_file.CollectionTree.GetListOfBranches())
 
 
 def generate_data_dict(path):

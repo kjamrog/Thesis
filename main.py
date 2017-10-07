@@ -31,13 +31,19 @@ class Element(object):
                 parent.add_child(element)
             if d[i] is not None:
                 element.add_children(d[i], x_pos + 3)
-        return elements;
+        return elements
 
     def add_children(self, child, x_pos):
         if type(child) is dict:
             self.add_children(Element.create_elements_structure(child, x_pos, self), x_pos)
         elif type(child) is str:
             self.add_child(child)
+
+    @staticmethod
+    def generate_structure(d, x_pos):
+        structure = Element.create_elements_structure(d, x_pos)
+        structure.sort(key=lambda x: x.name)
+        return structure
 
 
 def show_children(d):
@@ -78,7 +84,7 @@ class Main(object):
         # Create and draw structures
         # test_dict = root.get_simple_dict()
         test_dict = root.generate_data_dict(sys.argv[1])
-        self.structures = Element.create_elements_structure(test_dict, 0)
+        self.structures = Element.generate_structure(test_dict, 0)
 
         for i in self.structures:
             i.selected = True
@@ -232,7 +238,7 @@ class Main(object):
                 name = item.parent.name + '.' + name
                 item = item.parent
             print(name)
-        print(len(self.structures))
+        print(len(self.chosen_items))
 
     def save_results(self, path):
         f = open(path, 'w')
@@ -245,7 +251,10 @@ class Main(object):
             while item.parent:
                 name = item.parent.name + '.' + name
                 item = item.parent
+            if(name.startswith('xAOD::AuxContainerBase')):
+                name += '.'
             f.write('obj.AddItem("' + name + '")\n')
+            # f.write('obj.AddItem("' + name[6:] + '")\n')
         f.close()
 
 

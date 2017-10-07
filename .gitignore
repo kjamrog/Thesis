@@ -102,3 +102,6 @@ ENV/
 
 # editors
 .idea/
+
+# pickle files
+*.pkl

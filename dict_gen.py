@@ -46,7 +46,12 @@ def create_names_dict(typedefs_list):
                     original_name += ' ' + words[j]
                     j += 1
                 if j < len(words) and words[j].endswith(';'):
-                    names_dict[original_name.strip()] = (words[j])[:-1]
+                    original_name = re.sub(' ', '', original_name)
+                    inner_element = re.findall('< *\w+ *>', original_name)
+                    if len(inner_element) > 0:
+                        for inner in inner_element:
+                            original_name = re.sub(inner, '<xAOD::' + inner[1:], original_name)
+                    names_dict[original_name] = (words[j])[:-1]
             i += 1
     return names_dict
 
@@ -55,11 +60,12 @@ def generate_names_dict(base_path, dest_file):
     header_files = list_headers(base_path)
     typedefs = find_typedefs(header_files)
     container_names_dict = create_names_dict(typedefs)
+    for i in container_names_dict:
+        print i, container_names_dict[i]
     output = open(dest_file, 'wb')
     pickle.dump(container_names_dict, output)
     output.close()
 
 
 generate_names_dict(sys.argv[1], sys.argv[2])
-
 
