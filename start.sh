@@ -1,1 +1,1 @@
-python2.7 -W ignore ./main.py $1 $2
+python2.7 -W ignore ./main.py $1 $2 $3
