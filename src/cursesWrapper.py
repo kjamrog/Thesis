@@ -17,10 +17,33 @@ class Element(object):
         self.selected = False
         self.selected_children_number = 0
 
+    def check_filter(self, filter_text):
+        for child in self.children:
+            if child.check_filter(filter_text):
+                self.show_children = True
+                return True
+        if filter_text in self.name:
+            return True
+        return False
+
+    def get_mark_character(self):
+        if self.selected:
+            return 'X'
+        elif self.selected_children_number > 0:
+            return 'O'
+        else:
+            return ' '
+
     def add_child(self, child):
         if type(child) is str:
             child = Element(child, self.x_pos + 3, self)
         self.children.append(child)
+
+    def add_children(self, child, x_pos):
+        if type(child) is dict:
+            self.add_children(Element.create_elements_structure(child, x_pos, self), x_pos)
+        elif type(child) is str:
+            self.add_child(child)
 
     @staticmethod
     def create_elements_structure(d, x_pos, parent=None):
@@ -34,12 +57,6 @@ class Element(object):
                 element.add_children(d[i], x_pos + 3)
         return elements
 
-    def add_children(self, child, x_pos):
-        if type(child) is dict:
-            self.add_children(Element.create_elements_structure(child, x_pos, self), x_pos)
-        elif type(child) is str:
-            self.add_child(child)
-
     @staticmethod
     def generate_structure(d, x_pos):
         structure = Element.create_elements_structure(d, x_pos)
@@ -52,7 +69,8 @@ class Element(object):
 class GuiLoader(object):
     
     def __init__(self, data_dict):
-        self.structures = Element.generate_structure(data_dict, 0)
+        self.all_structures = Element.generate_structure(data_dict, 0)
+        self.structures = self.all_structures[:]
         self.lines = []
         self.chosen_items = set()
 
@@ -80,10 +98,15 @@ class GuiLoader(object):
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
-        self.actual_y = 0
-        curses.setsyx(0, self.lines[self.actual_y].x_pos + 1)
-        self.pad.addch(curses.getsyx()[0], curses.getsyx()[1], ' ', self.styles['highlighted'])
-        curses.curs_set(0)
+        try:
+            self.actual_y = 0
+            element = self.lines[self.actual_y]
+            curses.setsyx(0, element.x_pos + 1)
+            self.pad.addch(curses.getsyx()[0], curses.getsyx()[1], element.get_mark_character(), self.styles['highlighted'])
+            curses.curs_set(0)
+        except IndexError:
+            # Handle situation when self.lines list is empty
+            pass
 
 
     def initialize(self, stdscreen):        
@@ -181,17 +204,12 @@ class GuiLoader(object):
                 search = curses.textpad.Textbox(search_window)
                 self.refresh_pad()
                 search_border.refresh()
-                search.edit()
-                self.refresh_pad()
+                text = search.edit().rstrip()
+                self.filter(text)
 
 
     def draw_structure(self, structure, y):
-        mark_character = ' '
-        if structure.selected:
-            mark_character = 'X'
-        elif structure.selected_children_number > 0:
-            mark_character = 'O'
-        self.pad.insnstr(y, structure.x_pos, '[' + mark_character + '] ' + structure.name, self.styles['normal'])
+        self.pad.insnstr(y, structure.x_pos, '[' + structure.get_mark_character() + '] ' + structure.name, self.styles['normal'])
         self.lines.insert(y, structure)
         y += 1
         if structure.show_children:
@@ -212,16 +230,26 @@ class GuiLoader(object):
     def refresh_pad(self):
         self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width)
 
-    def redraw(self):
+    def redraw(self, reinit_cursor=False):
         cursor_pos = curses.getsyx()
         self.pad.clear()
         self.draw_all_structures()
         self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
         self.actual_y = cursor_pos[0] + self.actual_offset
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
-        self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character,
-                       self.styles['highlighted'])
+        if reinit_cursor:
+            self.actual_offset = 0
+            self.initialize_cursor()
+        else:
+            self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
         self.refresh_pad()
+
+    def filter(self, text):
+        if len(text) > 0:
+            self.structures = filter(lambda el: el.check_filter(text), self.all_structures)
+        else:
+            self.structures = self.all_structures[:]
+        self.redraw(True)
 
     def move_cursor(self, number):
         cursor_pos = curses.getsyx()

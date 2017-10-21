@@ -48,7 +48,8 @@ data_dict = rootReader.generate_data_dict()
 guiLoader = GuiLoader(data_dict)
 results = guiLoader.load_gui()
 print_results(results)
-# save_results(sys.argv[2], path)
 
-
-# print data_dict
+try:
+    save_results(sys.argv[2], path)
+except IndexError:
+    print('Missing second argument. Results will not be saved')
