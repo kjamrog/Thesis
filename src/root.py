@@ -4,7 +4,10 @@
 import re
 import pickle
 import ROOT
+import logger
 
+
+logger = logger.get_logger()
 
 def get_simple_dict():
     return {
@@ -56,6 +59,7 @@ class RootFileReader(object):
             from AthenaCommon.AthenaCommonFlags import athenaCommonFlags
             athenaCommonFlags.FilesInput = [self.input_file]
             from RecExConfig.InputFilePeeker import inputFileSummary
+            logger.info('Reading class names from input file')
             itemsdict = inputFileSummary['eventdata_itemsDic']
             classes = {}
             for key in itemsdict:
@@ -65,8 +69,7 @@ class RootFileReader(object):
             self.input_classes = classes
         except ImportError as ie:
             self.input_classes = {}
-            print('Cannot load class names from input file')
-            print('Reason: ' + ie.message)
+            logger.warning('Cannot load class names from input file. Reason: ' + ie.message)
 
 
     def generate_data_dict(self):

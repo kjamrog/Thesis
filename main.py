@@ -4,7 +4,7 @@
 import sys
 from src.cursesWrapper import GuiLoader
 from src.root import RootFileReader
-
+import src.logger as logging
 
 
 def save_results(results, path):
@@ -19,12 +19,10 @@ def save_results(results, path):
             name = item.parent.name + '.' + name
             item = item.parent
         if 'aux' in name or 'Aux' in name:
-        # name.startswith('xAOD::AuxContainerBase')):
             name += '.'
         f.write('obj.AddItem("' + name + '")\n')
-        # f.write('obj.AddItem("' + name[6:] + '")\n')
     f.close()
-    if sys.argv[3]:
+    if len(sys.argv)>3:
         import pickle
         output = open(sys.argv[3], 'wb')
         pickle.dump(map(lambda x: x.name, results), output)
@@ -40,16 +38,37 @@ def print_results(results):
         print(name)
     print(len(results))
 
+def exit_app(exit_code=0):
+    logging.print_logs()
+    sys.exit(exit_code)
 
-# Load data
-rootReader = RootFileReader(sys.argv[1], './container_names.pkl')
-data_dict = rootReader.generate_data_dict()  
 
-guiLoader = GuiLoader(data_dict)
-results = guiLoader.load_gui()
-print_results(results)
 
-try:
-    save_results(sys.argv[2], path)
-except IndexError:
-    print('Missing second argument. Results will not be saved')
+if __name__ == '__main__':
+    # Set up logger
+    logging.setup()
+    logger = logging.get_logger()
+    
+    try:
+        inputFilePath = sys.argv[1]
+        logger.info('Loading data form input file: ' + inputFilePath)
+    except IndexError:
+        logger.error('Missing input file path')
+        exit_app(1)
+
+    # Load data
+    rootReader = RootFileReader(sys.argv[1], './container_names.pkl')
+    data_dict = rootReader.generate_data_dict()  
+
+    logger.info('Data loaded')
+
+    guiLoader = GuiLoader(data_dict)
+    results = guiLoader.load_gui()
+    print_results(results)
+
+    try:
+        save_results(sys.argv[2], path)
+    except IndexError:
+        logger.warning('Missing second argument. Results will not be saved')
+
+    exit_app()

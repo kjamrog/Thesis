@@ -18,12 +18,12 @@ class Element(object):
         self.selected_children_number = 0
 
     def check_filter(self, filter_text):
-        for child in self.children:
-            if child.check_filter(filter_text):
-                self.show_children = True
-                return True
         if filter_text in self.name:
             return True
+        for child in self.children:
+            if child.check_filter(filter_text):
+                # self.show_children = True
+                return True
         return False
 
     def get_mark_character(self):
@@ -87,14 +87,12 @@ class GuiLoader(object):
         self.styles = {'normal': normal, 'highlighted': highlighted}
 
     def initialize_window(self):
-        start_x = 0
-        start_y = 5
         self.height, self.width = self.screen.getmaxyx()
-        self.win = curses.newwin(self.height, self.width, start_y, start_x)
+        # self.win = curses.newwin(self.height, self.width,start_y, start_x)
         self.pad = curses.newpad(32000, self.width)
         self.actual_offset = 0
         self.pad_height = self.height - 1
-        self.win.keypad(1)
+        # self.win.keypad(1)
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
@@ -111,8 +109,7 @@ class GuiLoader(object):
 
     def initialize(self, stdscreen):        
         self.screen = stdscreen
-        curses.initscr()
-        
+        curses.initscr() 
         self.initialize_window()
         self.initialize_styles()
         self.draw_all_structures()
@@ -194,13 +191,14 @@ class GuiLoader(object):
 
             if event == ord('f'):
                 ## initializing search input
-                b_starty = 2
-                b_startx = self.width - 60
+                b_starty = 0
+                b_startx = self.width - 50
                 b_width = 50
                 b_height = 3
-                search_border = self.win.derwin(b_height, b_width, b_starty, b_startx)
+                # search_border = self.win.derwin(b_height, b_width, b_starty, b_startx)
+                search_border = curses.newwin(b_height+1, b_width, b_starty, b_startx)
                 search_border.border()
-                search_window = search_border.derwin(b_height-2, b_width-2, 1, 1)
+                search_window = search_border.derwin(b_height-2, b_width-2, 2, 1)
                 search = curses.textpad.Textbox(search_window)
                 self.refresh_pad()
                 search_border.refresh()
