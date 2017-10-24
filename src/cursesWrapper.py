@@ -1,11 +1,13 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
  
+import sys
 import curses
 import curses.textpad
 from root import RootFileReader
-import sys
+import logger as logging
 
+logger = logging.get_logger()
 
 class Element(object):
     def __init__(self, name, x_pos, parent=None):
@@ -65,19 +67,20 @@ class Element(object):
 
 
 
-
-class GuiLoader(object):
+class Pad(object):
     
-    def __init__(self, data_dict):
-        self.all_structures = Element.generate_structure(data_dict, 0)
-        self.structures = self.all_structures[:]
-        self.lines = []
-        self.chosen_items = set()
-
-        # Select all structures (to be removed)
-        for i in self.structures:
-            i.selected = True
-            self.chosen_items.add(i)
+    def __init__(self, data_dict, width, height):
+        self.data_dict = data_dict
+        self.width = width
+        self.pad = curses.newpad(32000, width)
+        self.actual_offset = 0
+        self.pad_height = height - 1
+        
+        self.initialize_styles()
+        self.initialize_structures()
+        self.draw_all_structures()
+        self.initialize_cursor()
+        self.refresh()
 
 
     def initialize_styles(self):
@@ -86,13 +89,17 @@ class GuiLoader(object):
         normal = curses.A_NORMAL  # coloring for a non highlighted menu option
         self.styles = {'normal': normal, 'highlighted': highlighted}
 
-    def initialize_window(self):
-        self.height, self.width = self.screen.getmaxyx()
-        # self.win = curses.newwin(self.height, self.width,start_y, start_x)
-        self.pad = curses.newpad(32000, self.width)
-        self.actual_offset = 0
-        self.pad_height = self.height - 1
-        # self.win.keypad(1)
+
+    def initialize_structures(self):
+        self.all_structures = Element.generate_structure(self.data_dict, 0)
+        self.structures = self.all_structures[:]
+        self.lines = []
+        self.chosen_items = set()
+
+        # Select all structures (to be removed)
+        for i in self.structures:
+            i.selected = True
+            self.chosen_items.add(i)
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
@@ -105,105 +112,6 @@ class GuiLoader(object):
         except IndexError:
             # Handle situation when self.lines list is empty
             pass
-
-
-    def initialize(self, stdscreen):        
-        self.screen = stdscreen
-        curses.initscr() 
-        self.initialize_window()
-        self.initialize_styles()
-        self.draw_all_structures()
-        self.initialize_cursor()
-        self.refresh_pad()
-        self.start_event_loop()        
-        curses.endwin()
-        # self.print_results()
-        # self.save_results(sys.argv[2])
-
-        ##########################################
-        ## Currently unnecessary settings ########
-        ###########################################
-        # curses.noecho()
-        # curses.mousemask(1)
-        # curses.cbreak()
-        # curses.start_color()
-        # self.screen.keypad(1)
-        # self.screen.nodelay(True)
-
-
-
-    def load_gui(self):
-        curses.wrapper(self.initialize)
-        return self.chosen_items
-
-    def start_event_loop(self):
-        while True:
-            event = self.screen.getch()
-            if event == ord("q"):
-                break
-
-            if event == curses.KEY_DOWN:
-                if self.actual_y < len(self.lines) - 1:
-                    self.move_cursor(1)
-                    cursor_pos = curses.getsyx()
-                    if cursor_pos[0] > self.pad_height - 4:
-                        self.scroll(1)
-
-            if event == curses.KEY_UP:
-                if self.actual_y >= 1:
-                    self.move_cursor(-1)
-                    cursor_pos = curses.getsyx()
-                    if cursor_pos[0] < 4 and self.actual_offset > 0:
-                        self.scroll(-1)
-
-            if event == curses.KEY_PPAGE:
-                if self.actual_offset > 0:
-                    self.scroll(-1)
-
-            if event == curses.KEY_NPAGE:
-                self.scroll(1)
-
-            if event == ord(" "):
-                element = self.lines[self.actual_y]
-                if element.selected:
-                    self.diselect_element(self.actual_y)
-                else:
-                    self.select_element(self.actual_y)
-                self.redraw()
-
-            if event == ord('i'):
-                element = self.lines[self.actual_y]
-                if not element.show_children:
-                    element.show_children = True
-                else:
-                    element.show_children = False
-                self.redraw()
-
-            if event == curses.KEY_RIGHT:
-                element = self.lines[self.actual_y]
-                element.show_children = True
-                self.redraw()
-
-            if event == curses.KEY_LEFT:
-                element = self.lines[self.actual_y]
-                element.show_children = False
-                self.redraw()
-
-            if event == ord('f'):
-                ## initializing search input
-                b_starty = 0
-                b_startx = self.width - 50
-                b_width = 50
-                b_height = 3
-                # search_border = self.win.derwin(b_height, b_width, b_starty, b_startx)
-                search_border = curses.newwin(b_height+1, b_width, b_starty, b_startx)
-                search_border.border()
-                search_window = search_border.derwin(b_height-2, b_width-2, 2, 1)
-                search = curses.textpad.Textbox(search_window)
-                self.refresh_pad()
-                search_border.refresh()
-                text = search.edit().rstrip()
-                self.filter(text)
 
 
     def draw_structure(self, structure, y):
@@ -225,8 +133,10 @@ class GuiLoader(object):
         actual_character = chr(self.pad.inch(y, x) & 0xFF)
         return actual_character
 
-    def refresh_pad(self):
-        self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width)
+    def refresh(self):
+        self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width/2)
+        # self.second_pad.refresh(0, 0, 0, self.width/2 + 1, self.pad_height, self.width)
+
 
     def redraw(self, reinit_cursor=False):
         cursor_pos = curses.getsyx()
@@ -240,7 +150,7 @@ class GuiLoader(object):
             self.initialize_cursor()
         else:
             self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
-        self.refresh_pad()
+        self.refresh()
 
     def filter(self, text):
         if len(text) > 0:
@@ -258,7 +168,7 @@ class GuiLoader(object):
         cursor_pos = curses.getsyx()
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1])
         self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1], actual_character, self.styles['highlighted'])
-        self.refresh_pad()
+        self.refresh()
 
     def select_element(self, y):
         element = self.lines[y]
@@ -282,4 +192,118 @@ class GuiLoader(object):
         cursor_pos = curses.getsyx()
         self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
         self.actual_offset += number
-        self.refresh_pad()
+        self.refresh()
+
+
+    def handle_event(self, event):
+        if event == curses.KEY_DOWN:
+            if self.actual_y < len(self.lines) - 1:
+                self.move_cursor(1)
+                cursor_pos = curses.getsyx()
+                if cursor_pos[0] > self.pad_height - 4:
+                    self.scroll(1)
+
+        if event == curses.KEY_UP:
+            if self.actual_y >= 1:
+                self.move_cursor(-1)
+                cursor_pos = curses.getsyx()
+                if cursor_pos[0] < 4 and self.actual_offset > 0:
+                    self.scroll(-1)
+
+        if event == curses.KEY_PPAGE:
+            if self.actual_offset > 0:
+                self.scroll(-1)
+
+        if event == curses.KEY_NPAGE:
+            self.scroll(1)
+
+        if event == ord(" "):
+            element = self.lines[self.actual_y]
+            if element.selected:
+                self.diselect_element(self.actual_y)
+            else:
+                self.select_element(self.actual_y)
+            self.redraw()
+
+        if event == ord('i'):
+            element = self.lines[self.actual_y]
+            if not element.show_children:
+                element.show_children = True
+            else:
+                element.show_children = False
+            self.redraw()
+
+        if event == curses.KEY_RIGHT:
+            element = self.lines[self.actual_y]
+            element.show_children = True
+            self.redraw()
+
+        if event == curses.KEY_LEFT:
+            element = self.lines[self.actual_y]
+            element.show_children = False
+            self.redraw()
+
+
+
+
+class GuiLoader(object):
+    
+    def __init__(self, data_dict):
+        self.data_dict = data_dict
+
+    def initialize_window(self, initialize_offset=True):
+        self.height, self.width = self.screen.getmaxyx()
+        # self.win = curses.newwin(self.height, self.width,start_y, start_x)
+        self.pad = Pad(self.data_dict, self.width, self.height)
+        self.actual_offset = 0
+        self.pad_height = self.height - 1
+        # self.win.keypad(1)
+
+    def initialize(self, stdscreen):        
+        self.screen = stdscreen
+        curses.initscr() 
+        self.initialize_window()
+        self.start_event_loop()        
+        curses.endwin()
+
+        ##########################################
+        ## Currently unnecessary settings ########
+        ###########################################
+        # curses.noecho()
+        # curses.mousemask(1)
+        # curses.cbreak()
+        # curses.start_color()
+        # self.screen.keypad(1)
+        # self.screen.nodelay(True)
+
+
+
+    def load_gui(self):
+        curses.wrapper(self.initialize)
+        return self.pad.chosen_items
+
+    def start_event_loop(self):
+        while True:
+            event = self.screen.getch()
+            if event == ord("q"):
+                break
+
+            elif event == ord('f'):
+                ## initializing search input
+                search_size = 50
+                b_starty = 0
+                b_startx = self.width - search_size
+                b_width = search_size
+                b_height = 3
+                # search_border = self.win.derwin(b_height, b_width, b_starty, b_startx)
+                search_border = curses.newwin(b_height, b_width, b_starty, b_startx)
+                search_border.border()
+                search_window = search_border.derwin(b_height-2, b_width-2, 1, 1)
+                search = curses.textpad.Textbox(search_window)
+                self.pad.refresh()
+                search_border.refresh()
+                text = search.edit().rstrip()
+                self.pad.filter(text)
+            
+            else:
+                self.pad.handle_event(event)

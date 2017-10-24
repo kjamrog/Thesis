@@ -20,7 +20,16 @@ def save_results(results, path):
             item = item.parent
         if 'aux' in name or 'Aux' in name:
             name += '.'
+        if 'dyn' in name:
+            name = name.replace('dyn', '')
+        if 'Dyn' in name:
+            name = name.replace('Dyn', '')
         f.write('obj.AddItem("' + name + '")\n')
+        container_name = name.split('#')[0]
+        aux_base_container = 'xAOD::AuxContainerBase'
+        if container_name != aux_base_container and ('aux' in name or 'Aux' in name):
+            name_with_base_container = aux_base_container + '#' + name.split('#')[1]
+            f.write('obj.AddItem("' + name_with_base_container + '")\n')
     f.close()
     if len(sys.argv)>3:
         import pickle
@@ -67,7 +76,7 @@ if __name__ == '__main__':
     print_results(results)
 
     try:
-        save_results(sys.argv[2], path)
+        save_results(results, sys.argv[2])
     except IndexError:
         logger.warning('Missing second argument. Results will not be saved')
 
