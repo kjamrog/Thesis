@@ -3,39 +3,8 @@
 
 import sys
 from src.cursesWrapper import GuiLoader
-from src.root import RootFileReader
+from src.root import RootFileReader, OutputGenerator
 import src.logger as logging
-
-
-def save_results(results, path):
-    f = open(path, 'w')
-    f.write('obj = MSMgr.GetStream(0)\n')
-    f.write('items = (obj.GetItems())[:]\n')
-    f.write('for i in items:\n')
-    f.write('\tobj.RemoveItem(i)\n')
-    for item in results:
-        name = item.name
-        while item.parent:
-            name = item.parent.name + '.' + name
-            item = item.parent
-        if 'aux' in name or 'Aux' in name:
-            name += '.'
-        if 'dyn' in name:
-            name = name.replace('dyn', '')
-        if 'Dyn' in name:
-            name = name.replace('Dyn', '')
-        f.write('obj.AddItem("' + name + '")\n')
-        container_name = name.split('#')[0]
-        aux_base_container = 'xAOD::AuxContainerBase'
-        if container_name != aux_base_container and ('aux' in name or 'Aux' in name):
-            name_with_base_container = aux_base_container + '#' + name.split('#')[1]
-            f.write('obj.AddItem("' + name_with_base_container + '")\n')
-    f.close()
-    if len(sys.argv)>3:
-        import pickle
-        output = open(sys.argv[3], 'wb')
-        pickle.dump(map(lambda x: x.name, results), output)
-        output.close()
 
 
 def print_results(results):
@@ -74,10 +43,16 @@ if __name__ == '__main__':
     guiLoader = GuiLoader(data_dict)
     results = guiLoader.load_gui()
     print_results(results)
+    output_generator = OutputGenerator(results)
 
     try:
-        save_results(results, sys.argv[2])
+        output_generator.save_to_output_file(sys.argv[2])
     except IndexError:
         logger.warning('Missing second argument. Results will not be saved')
+
+    try:
+        output_generator.save_items_to_pkl_file(sys.argv[3])
+    except IndexError:
+        logger.warning('Missing third argument. Items will not be saved to pickle file')
 
     exit_app()

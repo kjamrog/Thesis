@@ -69,9 +69,10 @@ class Element(object):
 
 class Pad(object):
     
-    def __init__(self, data_dict, width, height):
+    def __init__(self, data_dict, width, height, start_x=0):
         self.data_dict = data_dict
         self.width = width
+        self.start_x = start_x
         self.pad = curses.newpad(32000, width)
         self.actual_offset = 0
         self.pad_height = height - 1
@@ -83,6 +84,12 @@ class Pad(object):
         self.refresh()
 
 
+    def update_width(self, new_width):
+        logger.info('Old width: {}'.format(self.width))
+        self.width = new_width
+        logger.info('New width: {}'.format(self.width))
+        self.refresh()
+
     def initialize_styles(self):
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)  # Sets up color pair
         highlighted = curses.color_pair(1)  # coloring for a highlighted menu option
@@ -91,7 +98,7 @@ class Pad(object):
 
 
     def initialize_structures(self):
-        self.all_structures = Element.generate_structure(self.data_dict, 0)
+        self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
         self.structures = self.all_structures[:]
         self.lines = []
         self.chosen_items = set()
@@ -134,7 +141,7 @@ class Pad(object):
         return actual_character
 
     def refresh(self):
-        self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width/2)
+        self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width)
         # self.second_pad.refresh(0, 0, 0, self.width/2 + 1, self.pad_height, self.width)
 
 
@@ -142,13 +149,14 @@ class Pad(object):
         cursor_pos = curses.getsyx()
         self.pad.clear()
         self.draw_all_structures()
-        self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
+        logger.info(cursor_pos)
         self.actual_y = cursor_pos[0] + self.actual_offset
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
         if reinit_cursor:
             self.actual_offset = 0
             self.initialize_cursor()
         else:
+            self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
             self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
         self.refresh()
 
@@ -254,7 +262,8 @@ class GuiLoader(object):
     def initialize_window(self, initialize_offset=True):
         self.height, self.width = self.screen.getmaxyx()
         # self.win = curses.newwin(self.height, self.width,start_y, start_x)
-        self.pad = Pad(self.data_dict, self.width, self.height)
+        logger.info('Window width: {}'.format(self.width))
+        self.pad = Pad(self.data_dict, self.width/2, self.height)
         self.actual_offset = 0
         self.pad_height = self.height - 1
         # self.win.keypad(1)
@@ -305,5 +314,8 @@ class GuiLoader(object):
                 text = search.edit().rstrip()
                 self.pad.filter(text)
             
+            elif event == ord('w'):
+                self.pad.update_width(self.width)
+
             else:
                 self.pad.handle_event(event)
