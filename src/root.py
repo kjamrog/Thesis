@@ -132,7 +132,7 @@ class OutputElementsDict(object):
             else:
                 new_element = OutputElement(p.name)
                 new_element.add_child(element.name)
-                self.elements_dict[new_element.name] = new_element
+                self.elements_dict[p.name] = new_element
                 
     def get_elements(self):
         elems =  [value.get_names() for (key, value) in self.elements_dict.iteritems()]
@@ -146,7 +146,7 @@ class OutputGenerator(object):
         self.elements_dict = OutputElementsDict()
 
     def generate_beginning_lines(self):
-        return ['obj = MSMfr.GetStream(0)', 'items = (obj.GetItems())[:]', 'for i in items:', '\tobj.RemoveItem(i)']
+        return ['obj = MSMgr.GetStream(0)', 'items = (obj.GetItems())[:]', 'for i in items:', '\tobj.RemoveItem(i)']
 
     def generate_adding_statement(self, name):
         return 'obj.AddItem("{}")'.format(name)

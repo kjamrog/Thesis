@@ -85,9 +85,7 @@ class Pad(object):
 
 
     def update_width(self, new_width):
-        logger.info('Old width: {}'.format(self.width))
         self.width = new_width
-        logger.info('New width: {}'.format(self.width))
         self.refresh()
 
     def initialize_styles(self):
@@ -103,10 +101,10 @@ class Pad(object):
         self.lines = []
         self.chosen_items = set()
 
-        # Select all structures (to be removed)
-        for i in self.structures:
-            i.selected = True
-            self.chosen_items.add(i)
+        # # Select all structures (to be removed)
+        # for i in self.structures:
+        #     i.selected = True
+        #     self.chosen_items.add(i)
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
@@ -149,7 +147,6 @@ class Pad(object):
         cursor_pos = curses.getsyx()
         self.pad.clear()
         self.draw_all_structures()
-        logger.info(cursor_pos)
         self.actual_y = cursor_pos[0] + self.actual_offset
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
         if reinit_cursor:
