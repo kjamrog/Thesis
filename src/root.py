@@ -66,7 +66,7 @@ class RootFileReader(object):
                     name = n if not n.endswith('.') else n[:-1]
                     classes[name] = key 
             self.input_classes = classes
-        except ImportError as ie:
+        except Exception as ie:
             self.input_classes = {}
             logger.warning('Cannot load class names from input file. Reason: ' + ie.message)
 
