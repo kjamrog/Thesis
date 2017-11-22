@@ -5,6 +5,7 @@ import re
 import pickle
 import ROOT
 import logger
+import serializer
 
 logger = logger.get_logger()
 
@@ -21,19 +22,13 @@ def get_simple_dict():
         }
     }
 
-def load_pickle_file(path):
-    f = open(path, 'rb')
-    data = pickle.load(f)
-    f.close()
-    return data
-
 
 class RootFileReader(object):
     def __init__(self, file_path, names_dict_path):
         self.input_file = file_path
         file = ROOT.TFile.Open(file_path)
         self.branches = file.CollectionTree.GetListOfBranches()
-        self.global_classes_dict = load_pickle_file(names_dict_path)
+        self.global_classes_dict = serializer.load_object(names_dict_path)
         self.load_input_classes()
         self.splitting_regexp = '[.]'
         self.load_names_arrays()
@@ -146,7 +141,7 @@ class OutputGenerator(object):
         self.elements_dict = OutputElementsDict()
 
     def generate_beginning_lines(self):
-        return ['obj = MSMgr.GetStream(0)', 'items = (obj.GetItems())[:]', 'for i in items:', '\tobj.RemoveItem(i)']
+        return ['obj = MSMgr.GetStream(0)', 'del obj.GetItems()[:]']
 
     def generate_adding_statement(self, name):
         return 'obj.AddItem("{}")'.format(name)
@@ -170,38 +165,4 @@ class OutputGenerator(object):
         file.close()
     
     def save_items_to_pkl_file(self, file_path):
-        output = open(file_path, 'wb')
-        pickle.dump(map(lambda x: x.name, self.items), output)
-        output.close()
-
-
-
-# def save_results(results, path):
-#     f = open(path, 'w')
-#     f.write('obj = MSMgr.GetStream(0)\n')
-#     f.write('items = (obj.GetItems())[:]\n')
-#     f.write('for i in items:\n')
-#     f.write('\tobj.RemoveItem(i)\n')
-#     for item in results:
-#         name = item.name
-#         while item.parent:
-#             name = item.parent.name + '.' + name
-#             item = item.parent
-#         if 'aux' in name or 'Aux' in name:
-#             name += '.'
-#         if 'dyn' in name:
-#             name = name.replace('dyn', '')
-#         if 'Dyn' in name:
-#             name = name.replace('Dyn', '')
-#         f.write('obj.AddItem("' + name + '")\n')
-#         container_name = name.split('#')[0]
-#         aux_base_container = 'xAOD::AuxContainerBase'
-#         if container_name != aux_base_container and ('aux' in name or 'Aux' in name):
-#             name_with_base_container = aux_base_container + '#' + name.split('#')[1]
-#             f.write('obj.AddItem("' + name_with_base_container + '")\n')
-#     f.close()
-#     if len(sys.argv)>3:
-#         import pickle
-#         output = open(sys.argv[3], 'wb')
-#         pickle.dump(map(lambda x: x.name, results), output)
-#         output.close()
+        serializer.save_object(file_path, map(lambda x: x.name, self.items))

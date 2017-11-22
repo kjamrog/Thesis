@@ -6,6 +6,7 @@ import curses
 import curses.textpad
 from root import RootFileReader
 import logger as logging
+import serializer
 
 logger = logging.get_logger()
 
@@ -65,12 +66,26 @@ class Element(object):
         structure.sort(key=lambda x: x.name)
         return structure
 
+    @staticmethod
+    def save_structure(path, structure):
+        serializer.save_object(path, structure)
+
+    @staticmethod
+    def load_structure(path):
+        structure = serializer.load_object(path)
+        if not type(structure) is list:
+            raise TypeError('Structure must be list of Element')
+        for el in structure:
+            if not isinstance(el, Element):
+                raise TypeError('All items in list must be of type Element')
+        return structure
+
 
 
 class Pad(object):
     
-    def __init__(self, data_dict, width, height, start_x=0):
-        self.data_dict = data_dict
+    def __init__(self, data_structures, width, height, start_x=0):
+        self.all_structures = data_structures
         self.width = width
         self.start_x = start_x
         self.pad = curses.newpad(32000, width)
@@ -96,7 +111,7 @@ class Pad(object):
 
 
     def initialize_structures(self):
-        self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
+        # self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
         self.structures = self.all_structures[:]
         self.lines = []
         self.chosen_items = set()
@@ -163,7 +178,7 @@ class Pad(object):
         else:
             self.structures = self.all_structures[:]
         self.redraw(True)
-
+        
     def move_cursor(self, number):
         cursor_pos = curses.getsyx()
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
@@ -248,71 +263,115 @@ class Pad(object):
             element.show_children = False
             self.redraw()
 
+    def save_data(self, path):
+        if len(path) > 0:
+            if not path.endswith('.pkl'):
+                path = path + '.pkl'
+                serializer.save_object(path, self.all_structures)
+                logger.info('Data saved to pickle file: {}'.format(path))
 
 
 
 class GuiLoader(object):
     
-    def __init__(self, data_dict):
-        self.data_dict = data_dict
-
-    def initialize_window(self, initialize_offset=True):
-        self.height, self.width = self.screen.getmaxyx()
-        # self.win = curses.newwin(self.height, self.width,start_y, start_x)
-        logger.info('Window width: {}'.format(self.width))
-        self.pad = Pad(self.data_dict, self.width/2, self.height)
+    def __init__(self, data_structures):
+        self.data_structures = data_structures
+        self.width, self.height, self.pad_height = (0, 0, 0)
+        self.pad = None
         self.actual_offset = 0
-        self.pad_height = self.height - 1
-        # self.win.keypad(1)
+        self.screen = None
 
-    def initialize(self, stdscreen):        
+    def __initialize_window(self):
+        self.height, self.width = self.screen.getmaxyx()
+        logger.info('Window width: {}'.format(self.width))
+        self.pad = Pad(self.data_structures, self.width, self.height)
+        self.pad_height = self.height - 1
+
+    def __initialize(self, stdscreen):        
         self.screen = stdscreen
         curses.initscr() 
-        self.initialize_window()
-        self.start_event_loop()        
+        self.__initialize_window()
+        self.__start_event_loop()        
         curses.endwin()
 
-        ##########################################
-        ## Currently unnecessary settings ########
-        ###########################################
-        # curses.noecho()
-        # curses.mousemask(1)
-        # curses.cbreak()
-        # curses.start_color()
-        # self.screen.keypad(1)
-        # self.screen.nodelay(True)
-
-
-
     def load_gui(self):
-        curses.wrapper(self.initialize)
+        curses.wrapper(self.__initialize)
         return self.pad.chosen_items
 
-    def start_event_loop(self):
+    def search(self):
+        search_size = 50
+        b_starty = 0
+        b_startx = self.width - search_size
+        b_width = search_size
+        b_height = 3
+        search = SearchModal(b_startx, b_starty, b_width, b_height)
+        text = search.edit()
+        self.pad.filter(text)
+
+    def __start_event_loop(self):
         while True:
             event = self.screen.getch()
             if event == ord("q"):
                 break
 
             elif event == ord('f'):
-                ## initializing search input
-                search_size = 50
-                b_starty = 0
-                b_startx = self.width - search_size
-                b_width = search_size
-                b_height = 3
-                # search_border = self.win.derwin(b_height, b_width, b_starty, b_startx)
-                search_border = curses.newwin(b_height, b_width, b_starty, b_startx)
-                search_border.border()
-                search_window = search_border.derwin(b_height-2, b_width-2, 1, 1)
-                search = curses.textpad.Textbox(search_window)
-                self.pad.refresh()
-                search_border.refresh()
-                text = search.edit().rstrip()
-                self.pad.filter(text)
+                self.search()
             
-            elif event == ord('w'):
-                self.pad.update_width(self.width)
+            elif event == ord('s'):
+                input_size = 50
+                b_starty = (self.height/2) - 2
+                b_startx = (self.width/2) - (input_size/2)
+                b_width = input_size
+                b_height = 10
+                input_modal = InputModal(b_startx, b_starty, b_width, b_height, 'Provide path')
+                path = input_modal.get_input()
+                self.pad.save_data(path)
 
             else:
                 self.pad.handle_event(event)
+
+
+
+class Modal(object):
+    def __init__(self, start_x, start_y, width, height):
+        self.width = width
+        self.height = height
+        self.start_x = start_x
+        self.start_y = start_y
+        self.window = curses.newwin(height, width, start_y, start_x)
+        self.window.box()
+        self.refresh()
+
+    def refresh(self):
+        self.window.refresh()
+
+    def destroy(self):
+        del self.window
+
+
+class SearchModal(Modal):
+    def __init__(self, start_x, start_y, width, height):
+        super(SearchModal, self).__init__(start_x, start_y, width, height)
+        self.search_window = self.window.derwin(self.height-2, self.width-2, 1, 1)
+        self.search = curses.textpad.Textbox(self.search_window)
+
+    def edit(self):
+        return self.search.edit().strip()
+
+
+class InputModal(Modal):
+    def __init__(self, start_x, start_y, width, height, message):
+        super(InputModal, self).__init__(start_x, start_y, width, height)
+        self.message_box = self.window.derwin((self.height/2)-2, self.width-2, (self.height/2)-1, 1)
+        self.message_box.insnstr(0, (self.width/2) - len(message)/2, message, curses.A_NORMAL)
+        self.message_box.refresh()
+        input_width = 30
+        if input_width >= (self.width - 2):
+            input_width = self.width -2 
+        input_starty, input_startx = (self.height/2+1, self.width/2-input_width/2)
+        logger.info(input_startx)
+        self.input_box = self.window.derwin(1, input_width, input_starty, input_startx)
+        self.input = curses.textpad.Textbox(self.input_box)
+
+    def get_input(self):
+        return self.input.edit().strip()
