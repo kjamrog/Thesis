@@ -5,30 +5,16 @@ import re
 import pickle
 import ROOT
 import logger
-import serializer
+import utils
 
 logger = logger.get_logger()
-
-def get_simple_dict():
-    return {
-        'first': {'aa': {}, 'bb': {}, 'cc': {}, 'mm': {}, 'nn': {}},
-        'second': {
-            'dd': {},
-            'third': {'ee': {}},
-            'forth': {
-                'ff': {},
-                'fifth': {'sss': {}, 'sadasdsd': {}}
-            }
-        }
-    }
-
 
 class RootFileReader(object):
     def __init__(self, file_path, names_dict_path):
         self.input_file = file_path
         file = ROOT.TFile.Open(file_path)
         self.branches = file.CollectionTree.GetListOfBranches()
-        self.global_classes_dict = serializer.load_object(names_dict_path)
+        self.global_classes_dict = utils.load_object(names_dict_path)
         self.load_input_classes()
         self.splitting_regexp = '[.]'
         self.load_names_arrays()
@@ -46,7 +32,7 @@ class RootFileReader(object):
 
 
     def load_names_arrays(self):
-        self.names_arrays =  map(lambda x: re.split(self.splitting_regexp, self.get_class_name(x) + '#' + x.GetName()), self.branches)
+        self.names_arrays =  map(lambda x: re.split(self.splitting_regexp, self.get_class_name(x) + '#' + x.GetName().replace('Dyn', '')), self.branches)
     
     def load_input_classes(self):
         try:
@@ -64,19 +50,6 @@ class RootFileReader(object):
         except Exception as ie:
             self.input_classes = {}
             logger.warning('Cannot load class names from input file. Reason: ' + ie.message)
-
-
-    def generate_data_dict(self):
-        data_dict = {}
-        for array in self.names_arrays:
-            element = data_dict
-            for name in array:
-                if name.strip():
-                    if name not in element:
-                        element[name] = {}
-                    element = element[name]
-        return data_dict
-
 
 
 class OutputElement(object):
@@ -97,7 +70,7 @@ class OutputElement(object):
             self.name = self.name.replace('Dyn', '')
 
     def prepare_name(self):
-        self.remove_dyn_substring()
+        # self.remove_dyn_substring()
         if self.is_aux or len(self.children)>0:
             children_string = '.'.join(self.children)
             self.name += '.{}'.format(children_string)
@@ -109,11 +82,12 @@ class OutputElement(object):
             names.append(self.split_char.join((self.aux_base_container, self.name)))
         return names
 
-
-
 class OutputElementsDict(object):
-    def __init__(self):
-        self.elements_dict = {}    
+    def __init__(self, items):
+        self.elements_dict = {}
+        if items:
+            for item in items:
+                self.add_element(item)    
 
     def add_element(self, element):
         if not element.parent:
@@ -133,12 +107,18 @@ class OutputElementsDict(object):
         elems =  [value.get_names() for (key, value) in self.elements_dict.iteritems()]
         return elems
 
-
+    def get_as_plain_dict(self):
+        output = {}
+        for element_name, element in self.elements_dict.iteritems():
+            output[element_name] = {}
+            for child in element.children:
+                output[element_name][child] = {}
+        return output
 
 class OutputGenerator(object):
     def __init__(self, items):
         self.items = items
-        self.elements_dict = OutputElementsDict()
+        self.elements_dict = OutputElementsDict(items)
 
     def generate_beginning_lines(self):
         return ['obj = MSMgr.GetStream(0)', 'del obj.GetItems()[:]']
@@ -148,8 +128,6 @@ class OutputGenerator(object):
 
     def generate_elements_adding_statements(self):
         elements_adding_statements = []
-        for item in self.items:
-            self.elements_dict.add_element(item)
         elements = self.elements_dict.get_elements()
         for names in elements:
             for name in names:
@@ -165,4 +143,4 @@ class OutputGenerator(object):
         file.close()
     
     def save_items_to_pkl_file(self, file_path):
-        serializer.save_object(file_path, map(lambda x: x.name, self.items))
+        utils.save_object(file_path, map(lambda x: x.name, self.items))

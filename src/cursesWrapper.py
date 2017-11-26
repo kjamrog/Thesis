@@ -4,87 +4,16 @@
 import sys
 import curses
 import curses.textpad
-from root import RootFileReader
+from root import RootFileReader, OutputElementsDict
 import logger as logging
-import serializer
+import utils
+from element import Element
 
 logger = logging.get_logger()
 
-class Element(object):
-    def __init__(self, name, x_pos, parent=None):
-        self.name = name
-        self.x_pos = x_pos
-        self.parent = parent
-        self.children = []
-        self.show_children = False
-        self.selected = False
-        self.selected_children_number = 0
-
-    def check_filter(self, filter_text):
-        if filter_text in self.name:
-            return True
-        for child in self.children:
-            if child.check_filter(filter_text):
-                # self.show_children = True
-                return True
-        return False
-
-    def get_mark_character(self):
-        if self.selected:
-            return 'X'
-        elif self.selected_children_number > 0:
-            return 'O'
-        else:
-            return ' '
-
-    def add_child(self, child):
-        if type(child) is str:
-            child = Element(child, self.x_pos + 3, self)
-        self.children.append(child)
-
-    def add_children(self, child, x_pos):
-        if type(child) is dict:
-            self.add_children(Element.create_elements_structure(child, x_pos, self), x_pos)
-        elif type(child) is str:
-            self.add_child(child)
-
-    @staticmethod
-    def create_elements_structure(d, x_pos, parent=None):
-        elements = []
-        for i in d:
-            element = Element(i, x_pos, parent)
-            elements.append(element)
-            if parent is not None:
-                parent.add_child(element)
-            if d[i] is not None:
-                element.add_children(d[i], x_pos + 3)
-        return elements
-
-    @staticmethod
-    def generate_structure(d, x_pos):
-        structure = Element.create_elements_structure(d, x_pos)
-        structure.sort(key=lambda x: x.name)
-        return structure
-
-    @staticmethod
-    def save_structure(path, structure):
-        serializer.save_object(path, structure)
-
-    @staticmethod
-    def load_structure(path):
-        structure = serializer.load_object(path)
-        if not type(structure) is list:
-            raise TypeError('Structure must be list of Element')
-        for el in structure:
-            if not isinstance(el, Element):
-                raise TypeError('All items in list must be of type Element')
-        return structure
-
-
 
 class Pad(object):
-    
-    def __init__(self, data_structures, width, height, start_x=0):
+    def __init__(self, data_structures, chosen_items, width, height, start_x=0):
         self.all_structures = data_structures
         self.width = width
         self.start_x = start_x
@@ -93,14 +22,10 @@ class Pad(object):
         self.pad_height = height - 1
         
         self.initialize_styles()
+        self.chosen_items = chosen_items if chosen_items else set()
         self.initialize_structures()
-        self.draw_all_structures()
+        self.actual_y = 0
         self.initialize_cursor()
-        self.refresh()
-
-
-    def update_width(self, new_width):
-        self.width = new_width
         self.refresh()
 
     def initialize_styles(self):
@@ -113,8 +38,7 @@ class Pad(object):
     def initialize_structures(self):
         # self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
         self.structures = self.all_structures[:]
-        self.lines = []
-        self.chosen_items = set()
+        self.draw_all_structures()
 
         # # Select all structures (to be removed)
         # for i in self.structures:
@@ -124,18 +48,21 @@ class Pad(object):
     def initialize_cursor(self):
         # Highlight cursor on initial position
         try:
-            self.actual_y = 0
+            if self.actual_y > len(self.lines):
+                self.actual_y = 0
             element = self.lines[self.actual_y]
-            curses.setsyx(0, element.x_pos + 1)
-            self.pad.addch(curses.getsyx()[0], curses.getsyx()[1], element.get_mark_character(), self.styles['highlighted'])
+            curses.setsyx(self.actual_y, element.x_pos + 1)
+            self.pad.addch(curses.getsyx()[0], curses.getsyx()[1], self.get_mark_character(element), self.styles['highlighted'])
             curses.curs_set(0)
         except IndexError:
             # Handle situation when self.lines list is empty
             pass
 
+    def get_mark_character(self, structure):
+        return structure.get_mark_character()
 
     def draw_structure(self, structure, y):
-        self.pad.insnstr(y, structure.x_pos, '[' + structure.get_mark_character() + '] ' + structure.name, self.styles['normal'])
+        self.pad.insnstr(y, structure.x_pos, '[' + self.get_mark_character(structure) + '] ' + structure.name, self.styles['normal'])
         self.lines.insert(y, structure)
         y += 1
         if structure.show_children:
@@ -148,26 +75,28 @@ class Pad(object):
         y = 0
         for i in self.structures:
             y = self.draw_structure(i, y)
+        self.refresh()
 
     def get_character(self, y, x):
         actual_character = chr(self.pad.inch(y, x) & 0xFF)
         return actual_character
 
     def refresh(self):
-        self.pad.refresh(self.actual_offset, 0, 0, 0, self.pad_height, self.width)
-        # self.second_pad.refresh(0, 0, 0, self.width/2 + 1, self.pad_height, self.width)
-
+        cursor_pos = curses.getsyx()
+        self.pad.refresh(self.actual_offset, 0, 0, self.start_x, self.pad_height, self.width + self.start_x - 2)
+        cursor_pos = curses.getsyx()
+        curses.setsyx(cursor_pos[0], cursor_pos[1] - self.start_x)
 
     def redraw(self, reinit_cursor=False):
         cursor_pos = curses.getsyx()
         self.pad.clear()
         self.draw_all_structures()
-        self.actual_y = cursor_pos[0] + self.actual_offset
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
         if reinit_cursor:
             self.actual_offset = 0
             self.initialize_cursor()
         else:
+            self.actual_y = cursor_pos[0] + self.actual_offset
             self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
             self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
         self.refresh()
@@ -214,6 +143,14 @@ class Pad(object):
         self.actual_offset += number
         self.refresh()
 
+    def update_selection(self):
+        element = self.lines[self.actual_y]
+        if element.selected:
+            self.diselect_element(self.actual_y)
+        else:
+            self.select_element(self.actual_y)
+        self.redraw()
+
 
     def handle_event(self, event):
         if event == curses.KEY_DOWN:
@@ -237,14 +174,6 @@ class Pad(object):
         if event == curses.KEY_NPAGE:
             self.scroll(1)
 
-        if event == ord(" "):
-            element = self.lines[self.actual_y]
-            if element.selected:
-                self.diselect_element(self.actual_y)
-            else:
-                self.select_element(self.actual_y)
-            self.redraw()
-
         if event == ord('i'):
             element = self.lines[self.actual_y]
             if not element.show_children:
@@ -267,15 +196,48 @@ class Pad(object):
         if len(path) > 0:
             if not path.endswith('.pkl'):
                 path = path + '.pkl'
-                serializer.save_object(path, self.all_structures)
-                logger.info('Data saved to pickle file: {}'.format(path))
+            data_to_save = {
+                'structures': self.all_structures,
+                'chosen_items': self.chosen_items
+            }
+            utils.save_object(path, data_to_save)
+            logger.info('Data saved to pickle file: {}'.format(path))
 
+
+class DynamicPad(Pad):
+    def __init__(self, data_structures, width, height, start_x=0):
+        self.all_structures = data_structures
+        self.width = width
+        self.start_x = start_x
+        self.pad = curses.newpad(32000, width)
+        self.actual_offset = 0
+        self.pad_height = height - 1
+        
+        self.initialize_styles()
+        self.initialize_structures()
+        self.actual_y = 0
+        self.refresh()
+
+    def update_data_structure(self, new_structure):
+        self.all_structures = new_structure
+        self.structures = self.all_structures[:]
+        self.redraw(True)
+
+    def get_mark_character(self, structure):
+        return ' '
+        
+    def update_selection():
+        pass
+
+    def save_data(self, path):
+        logger.error('Data in dynamic pad cannot be saved')
 
 
 class GuiLoader(object):
     
-    def __init__(self, data_structures):
+    def __init__(self, data_structures, chosen_items):
         self.data_structures = data_structures
+        self.initial_chosen_items = chosen_items
         self.width, self.height, self.pad_height = (0, 0, 0)
         self.pad = None
         self.actual_offset = 0
@@ -283,9 +245,15 @@ class GuiLoader(object):
 
     def __initialize_window(self):
         self.height, self.width = self.screen.getmaxyx()
+        self.window = curses.newwin(self.height, self.width, 0, 0)
         logger.info('Window width: {}'.format(self.width))
-        self.pad = Pad(self.data_structures, self.width, self.height)
+        self.pad = Pad(self.data_structures, self.initial_chosen_items, self.width/2-1 , self.height)
+        test_structure = Element.generate_structure(utils.get_simple_dict(), 0)
+        self.chosen_items_pad = DynamicPad(test_structure, self.width / 2 - 1, self.height, self.width / 2 + 2)
+        self.actual_pad = self.pad
+        self.inactive_pad = self.chosen_items_pad
         self.pad_height = self.height - 1
+        self.actual_pad.refresh()
 
     def __initialize(self, stdscreen):        
         self.screen = stdscreen
@@ -306,13 +274,28 @@ class GuiLoader(object):
         b_height = 3
         search = SearchModal(b_startx, b_starty, b_width, b_height)
         text = search.edit()
-        self.pad.filter(text)
+        self.actual_pad.filter(text)
+
+    def reinit_chosen_items_pad(self):
+        elements_dict = OutputElementsDict(self.pad.chosen_items)
+        chosen_items_structure = Element.generate_structure(elements_dict.get_as_plain_dict(), 0)
+        self.chosen_items_pad.update_data_structure(chosen_items_structure)
 
     def __start_event_loop(self):
         while True:
             event = self.screen.getch()
-            if event == ord("q"):
+            if event == ord('q'):
                 break
+            
+            elif event == ord(' '):
+                if self.actual_pad == self.pad:
+                    self.pad.update_selection()
+                    self.reinit_chosen_items_pad()
+                    self.pad.refresh()
+
+            elif event == ord('\t'):
+                self.actual_pad, self.inactive_pad = self.inactive_pad, self.actual_pad
+                self.actual_pad.refresh()
 
             elif event == ord('f'):
                 self.search()
@@ -326,9 +309,12 @@ class GuiLoader(object):
                 input_modal = InputModal(b_startx, b_starty, b_width, b_height, 'Provide path')
                 path = input_modal.get_input()
                 self.pad.save_data(path)
+                self.window.refresh()
+                self.actual_pad.refresh()
+                self.inactive_pad.refresh()
 
             else:
-                self.pad.handle_event(event)
+                self.actual_pad.handle_event(event)
 
 
 
@@ -369,7 +355,6 @@ class InputModal(Modal):
         if input_width >= (self.width - 2):
             input_width = self.width -2 
         input_starty, input_startx = (self.height/2+1, self.width/2-input_width/2)
-        logger.info(input_startx)
         self.input_box = self.window.derwin(1, input_width, input_starty, input_startx)
         self.input = curses.textpad.Textbox(self.input_box)
 

@@ -6,7 +6,7 @@ from src.cursesWrapper import GuiLoader, Element
 from src.root import RootFileReader, OutputGenerator
 import src.logger as logging
 import argparse
-import src.serializer as serializer
+import src.utils as utils
 
 
 def print_results(results):
@@ -46,19 +46,22 @@ if __name__ == '__main__':
     if input_file_path:
         logger.info('Loading data from input file: ' + input_file_path)
         root_reader = RootFileReader(input_file_path, './container_names.pkl')
-        data_dict = root_reader.generate_data_dict()  
+        data_dict = utils.generate_data_dict(root_reader.names_arrays)  
         data_structures = Element.generate_structure(data_dict, 0)
+        initial_chosen_items = set()
     else:
         logger.info('Loading data from pickle file')
         try:
-            data_structures = Element.load_structure(pickle_input_file_path)
+            initial_data = utils.load_initial_data(pickle_input_file_path)
+            data_structures = initial_data['structures']
+            initial_chosen_items = initial_data['chosen_items']
         except TypeError as e:
             logger.error('Invalid data in pickle file: {}'.format(e.message))
             exit_app(1)
 
     logger.info('Data loaded')
 
-    gui_loader = GuiLoader(data_structures)
+    gui_loader = GuiLoader(data_structures, initial_chosen_items)
     results = gui_loader.load_gui()
     print_results(results)
     output_generator = OutputGenerator(results)
