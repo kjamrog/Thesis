@@ -27,7 +27,7 @@ def save_object(path, data):
     pickle.dump(data, output)
     output.close()
 
-def generate_dictionary(names_arrays):
+def generate_data_dict(names_arrays):
     data_dict = {}
     for array in names_arrays:
         element = data_dict

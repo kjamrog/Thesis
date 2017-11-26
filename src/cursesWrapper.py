@@ -248,8 +248,8 @@ class GuiLoader(object):
         self.window = curses.newwin(self.height, self.width, 0, 0)
         logger.info('Window width: {}'.format(self.width))
         self.pad = Pad(self.data_structures, self.initial_chosen_items, self.width/2-1 , self.height)
-        test_structure = Element.generate_structure(utils.get_simple_dict(), 0)
-        self.chosen_items_pad = DynamicPad(test_structure, self.width / 2 - 1, self.height, self.width / 2 + 2)
+        self.chosen_items_pad = DynamicPad([], self.width / 2 - 1, self.height, self.width / 2 + 2)
+        self.reinit_chosen_items_pad()
         self.actual_pad = self.pad
         self.inactive_pad = self.chosen_items_pad
         self.pad_height = self.height - 1
