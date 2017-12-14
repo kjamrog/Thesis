@@ -8,6 +8,7 @@ from root import RootFileReader, OutputElementsDict
 import logger as logging
 import utils
 from element import Element
+import copy
 
 logger = logging.get_logger()
 
@@ -277,8 +278,12 @@ class GuiLoader(object):
         self.actual_pad.filter(text)
 
     def reinit_chosen_items_pad(self):
-        elements_dict = OutputElementsDict(self.pad.chosen_items)
-        chosen_items_structure = Element.generate_structure(elements_dict.get_as_plain_dict(), 0)
+        chosen_items_structure = []
+        structure_copy = copy.deepcopy(self.data_structures)
+        for element in structure_copy:
+            chosen = element.get_selected()
+            if chosen:
+                chosen_items_structure.append(chosen)
         self.chosen_items_pad.update_data_structure(chosen_items_structure)
 
     def __start_event_loop(self):

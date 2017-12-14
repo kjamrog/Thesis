@@ -1,3 +1,5 @@
+import copy
+
 class Element(object):
     def __init__(self, name, x_pos, parent=None):
         self.name = name
@@ -35,6 +37,22 @@ class Element(object):
             self.add_children(Element.create_elements_structure(child, x_pos, self), x_pos)
         elif type(child) is str:
             self.add_child(child)
+
+    def get_selected(self):
+        self.show_children = False
+        if self.selected:
+            return self
+        for i in range(len(self.children)):
+            self.children[i] = self.children[i].get_selected()
+        self.children = filter(lambda child: child is not None, self.children)
+        return self if len(self.children) > 0 else None
+
+    def get_root_parent(self):
+        root = self.parent if self.parent else self
+        while root.parent:
+            root = root.parent
+        return root
+        
 
     @staticmethod
     def create_elements_structure(d, x_pos, parent=None):
