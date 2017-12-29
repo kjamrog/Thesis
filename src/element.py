@@ -27,6 +27,23 @@ class Element(object):
         else:
             return ' '
 
+    def select(self):
+        self.selected = True
+        element = self
+        while element.parent and (element.selected or element.selected_children_number > 0):
+            parent = element.parent
+            parent.selected_children_number += 1
+            element = parent
+
+    def diselect(self):
+        self.selected = False
+        element = self
+        while element.parent and (not element.selected or element.selected_children_number == 0):
+            parent = element.parent
+            parent.selected_children_number -= 1
+            element = parent
+
+
     def add_child(self, child):
         if type(child) is str:
             child = Element(child, self.x_pos + 3, self)

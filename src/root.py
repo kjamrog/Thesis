@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import re
-import pickle
 import ROOT
 import logger
 import utils

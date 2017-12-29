@@ -1,4 +1,4 @@
-import pickle
+import cPickle as pickle
 from element import Element
 
 def load_object(path):
@@ -37,16 +37,3 @@ def generate_data_dict(names_arrays):
                     element[name] = {}
                 element = element[name]
     return data_dict
-
-def get_simple_dict():
-    return {
-        'first': {'aa': {}, 'bb': {}, 'cc': {}, 'mm': {}, 'nn': {}},
-        'second': {
-            'dd': {},
-            'third': {'ee': {}},
-            'forth': {
-                'ff': {},
-                'fifth': {'sss': {}, 'sadasdsd': {}}
-            }
-        }
-    }

@@ -63,7 +63,7 @@ class Pad(object):
         return structure.get_mark_character()
 
     def draw_structure(self, structure, y):
-        self.pad.insnstr(y, structure.x_pos, '[' + self.get_mark_character(structure) + '] ' + structure.name, self.styles['normal'])
+        self.pad.addstr(y, structure.x_pos, '[' + self.get_mark_character(structure) + '] ' + structure.name, self.styles['normal'])
         self.lines.insert(y, structure)
         y += 1
         if structure.show_children:
@@ -122,21 +122,13 @@ class Pad(object):
 
     def select_element(self, y):
         element = self.lines[y]
-        element.selected = True
+        element.select()
         self.chosen_items.add(element)
-        while element.parent and (element.selected or element.selected_children_number > 0):
-            parent = element.parent
-            parent.selected_children_number += 1
-            element = parent
 
     def diselect_element(self, y):
         element = self.lines[y]
-        element.selected = False
         self.chosen_items.discard(element)
-        while element.parent and (not element.selected or element.selected_children_number == 0):
-            parent = element.parent
-            parent.selected_children_number -= 1
-            element = parent
+        element.diselect()
 
     def scroll(self, number):
         cursor_pos = curses.getsyx()
@@ -167,13 +159,6 @@ class Pad(object):
                 cursor_pos = curses.getsyx()
                 if cursor_pos[0] < 4 and self.actual_offset > 0:
                     self.scroll(-1)
-
-        if event == curses.KEY_PPAGE:
-            if self.actual_offset > 0:
-                self.scroll(-1)
-
-        if event == curses.KEY_NPAGE:
-            self.scroll(1)
 
         if event == ord('i'):
             element = self.lines[self.actual_y]
@@ -258,10 +243,10 @@ class GuiLoader(object):
 
     def __initialize(self, stdscreen):        
         self.screen = stdscreen
-        curses.initscr() 
+        # curses.initscr() 
+        self.screen.refresh()
         self.__initialize_window()
-        self.__start_event_loop()        
-        curses.endwin()
+        self.__start_event_loop()
 
     def load_gui(self):
         curses.wrapper(self.__initialize)
@@ -275,7 +260,7 @@ class GuiLoader(object):
         b_height = 3
         search = SearchModal(b_startx, b_starty, b_width, b_height)
         text = search.edit()
-        self.actual_pad.filter(text)
+        self.pad.filter(text)
 
     def reinit_chosen_items_pad(self):
         chosen_items_structure = []
@@ -354,7 +339,7 @@ class InputModal(Modal):
     def __init__(self, start_x, start_y, width, height, message):
         super(InputModal, self).__init__(start_x, start_y, width, height)
         self.message_box = self.window.derwin((self.height/2)-2, self.width-2, (self.height/2)-1, 1)
-        self.message_box.insnstr(0, (self.width/2) - len(message)/2, message, curses.A_NORMAL)
+        self.message_box.addstr(0, (self.width/2) - len(message)/2, message, curses.A_NORMAL)
         self.message_box.refresh()
         input_width = 30
         if input_width >= (self.width - 2):
