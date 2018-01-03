@@ -102,6 +102,18 @@ class Pad(object):
             self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
         self.refresh()
 
+    def hide_cursor(self):
+        cursor_pos = curses.getsyx()
+        actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
+        self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['normal'])
+        self.refresh()
+
+    def show_cursor(self):
+        cursor_pos = curses.getsyx()
+        actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
+        self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
+        self.refresh()
+
     def filter(self, text):
         if len(text) > 0:
             self.structures = filter(lambda el: el.check_filter(text), self.all_structures)
@@ -182,12 +194,13 @@ class Pad(object):
         if len(path) > 0:
             if not path.endswith('.pkl'):
                 path = path + '.pkl'
-            data_to_save = {
-                'structures': self.all_structures,
-                'chosen_items': self.chosen_items
-            }
-            utils.save_object(path, data_to_save)
-            logger.info('Data saved to pickle file: {}'.format(path))
+            logger.info('Saving configuration')
+            try:
+                utils.save_configuration(path, self.all_structures, self.chosen_items)
+                logger.info('Configuration saved to file: {}'.format(path))
+            except TypeError as e:
+                logger.error('Error while saving configuration: {}'.format(e.message))
+                
 
 
 class DynamicPad(Pad):
@@ -208,6 +221,11 @@ class DynamicPad(Pad):
         self.all_structures = new_structure
         self.structures = self.all_structures[:]
         self.redraw(True)
+        try:
+            self.hide_cursor()
+        except:
+            pass
+        
 
     def get_mark_character(self, structure):
         return ' '
@@ -232,7 +250,6 @@ class GuiLoader(object):
     def __initialize_window(self):
         self.height, self.width = self.screen.getmaxyx()
         self.window = curses.newwin(self.height, self.width, 0, 0)
-        logger.info('Window width: {}'.format(self.width))
         self.pad = Pad(self.data_structures, self.initial_chosen_items, self.width/2-1 , self.height)
         self.chosen_items_pad = DynamicPad([], self.width / 2 - 1, self.height, self.width / 2 + 2)
         self.reinit_chosen_items_pad()
@@ -250,7 +267,10 @@ class GuiLoader(object):
 
     def load_gui(self):
         curses.wrapper(self.__initialize)
-        return self.pad.chosen_items
+        return {
+            'chosen_items': self.pad.chosen_items,
+            'structures': self.pad.all_structures
+        }
 
     def search(self):
         search_size = 50
@@ -284,8 +304,12 @@ class GuiLoader(object):
                     self.pad.refresh()
 
             elif event == ord('\t'):
+                if len(self.inactive_pad.all_structures) == 0:
+                    continue
+                self.actual_pad.hide_cursor()
                 self.actual_pad, self.inactive_pad = self.inactive_pad, self.actual_pad
                 self.actual_pad.refresh()
+                self.actual_pad.show_cursor()
 
             elif event == ord('f'):
                 self.search()

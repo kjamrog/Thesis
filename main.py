@@ -59,22 +59,27 @@ if __name__ == '__main__':
             logger.error('Invalid data in pickle file: {}'.format(e.message))
             exit_app(1)
 
-    logger.info('Data loaded')
+    logger.info('Data loaded. {} elements found'.format(len(data_structures)))
 
     gui_loader = GuiLoader(data_structures, initial_chosen_items)
     results = gui_loader.load_gui()
-    print_results(results)
-    output_generator = OutputGenerator(results)
+    # print_results(results)
+    chosen_items = results['chosen_items']
+    output_generator = OutputGenerator(chosen_items)
 
     output_file = args.output
     if output_file:  
+        logger.info('Generating output python script: {}'.format(output_file))
         output_generator.save_to_output_file(output_file)
+        logger.info('Output script {} generated'.format(output_file))
     else:
         logger.warning('Missing second argument. Results will not be saved')
 
     pkl_output = args.pickle
     if pkl_output:
-        output_generator.save_items_to_pkl_file(pkl_output)
+        logger.info('Saving configuration')
+        utils.save_configuration(pkl_output, results['structures'], chosen_items)
+        logger.info('Configuration saved to file: {}'.format(pkl_output))
     else:
         logger.warning('Missing third argument. Items will not be saved to pickle file')
 

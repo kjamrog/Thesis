@@ -20,7 +20,7 @@ class RootFileReader(object):
 
     def get_class_name(self, branch):
         class_name = branch.GetClassName()
-        name = re.split(self.splitting_regexp, branch.GetName())[0]
+        name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
         if name in self.input_classes:
             class_name = self.input_classes[name]
         elif 'aux' in name or 'Aux' in name or class_name.startswith('vector') or not class_name:
@@ -28,7 +28,6 @@ class RootFileReader(object):
         elif class_name in self.global_classes_dict:
             class_name = self.global_classes_dict[class_name]
         return re.sub('_v[1-9]', '', class_name)
-
 
     def load_names_arrays(self):
         self.names_arrays =  map(lambda x: re.split(self.splitting_regexp, self.get_class_name(x) + '#' + x.GetName().replace('Dyn', '')), self.branches)
@@ -38,7 +37,7 @@ class RootFileReader(object):
             from AthenaCommon.AthenaCommonFlags import athenaCommonFlags
             athenaCommonFlags.FilesInput = [self.input_file]
             from RecExConfig.InputFilePeeker import inputFileSummary
-            logger.info('Reading class names from input file')
+            logger.info('Reading containers names from input file')
             itemsdict = inputFileSummary['eventdata_itemsDic']
             classes = {}
             for key in itemsdict:

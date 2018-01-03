@@ -22,6 +22,20 @@ def load_initial_data(path):
             raise TypeError('All items in list must be of type Element')
     return data
 
+def save_configuration(path, structures, chosen_items):
+    if not type(structures) is list:
+        raise TypeError('Structures must be list of Element')
+    if not type(chosen_items) is set:
+        raise TypeError('Chosen items must be set')
+    for el in structures:
+        if not isinstance(el, Element):
+            raise TypeError('All items in list must be of type Element')
+    data_to_save = {
+        'structures': structures,
+        'chosen_items': chosen_items
+    }
+    save_object(path, data_to_save)
+
 def save_object(path, data):
     output = open(path, 'wb')
     pickle.dump(data, output)

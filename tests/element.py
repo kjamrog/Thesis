@@ -1,5 +1,6 @@
 import unittest
 import random
+import copy
 from src.element import Element
 
 class ElementTests(unittest.TestCase):
@@ -15,10 +16,13 @@ class ElementTests(unittest.TestCase):
             }
         }
 
+    def generate_example_structure(self):
+        x_pos = 0
+        d = self.get_example_dict()
+        return Element.generate_structure(d, x_pos)
+
     def test_init(self):
-        '''
-        Element object initialization
-        '''
+        ''' Element object initialization '''
         name = 'test name'
         x_position = random.randint(0, 10)
         element = Element(name, x_position, None)
@@ -26,9 +30,7 @@ class ElementTests(unittest.TestCase):
         self.assertEqual(x_position, element.x_pos)
 
     def test_selection(self):
-        '''
-        Selecting and diselecting elements
-        '''
+        ''' Selecting and diselecting elements '''
         name = 'test name'
         x_position = random.randint(0, 10)
         element = Element(name, x_position, None)
@@ -39,9 +41,7 @@ class ElementTests(unittest.TestCase):
         self.assertFalse(element.selected)
 
     def test_structure_creation(self):
-        '''
-        Creating structure from dict
-        '''
+        ''' Creating structure from dict '''
         x_position = random.randint(0, 10)
         d = self.get_example_dict()
         structures = Element.generate_structure(d, x_position)
@@ -61,3 +61,64 @@ class ElementTests(unittest.TestCase):
         for child in element.children:
             self.assertEqual(child.x_pos, x_position + 3)
             self.assertEqual(child.parent, element)
+
+    def test_mark_character(self):
+        ''' Retrieving mark character depending on selection '''
+        structures = self.generate_example_structure()
+        first, second = structures[0], structures[1]
+        first.select()
+        second_child = second.children[0]
+        second_child.select()
+        self.assertEqual(first.get_mark_character(), 'X')
+        self.assertEqual(first.children[0].get_mark_character(), ' ')
+        self.assertEqual(second.get_mark_character(), 'O')
+        self.assertEqual(second_child.get_mark_character(), 'X')
+        second_child.diselect()
+        self.assertEqual(second_child.get_mark_character(), ' ')
+        self.assertEqual(second.get_mark_character(), ' ')
+
+    def test_get_selected(self):
+        ''' Retrieving selected part of element '''
+        structures = self.generate_example_structure()
+        first = structures[0]
+        first_copy = copy.deepcopy(first)
+        self.assertIsNone(first_copy.get_selected())
+        first_copy = copy.deepcopy(first)
+        first_copy.select()
+        self.assertEqual(len(first.children), len(first_copy.get_selected().children))
+        first_copy = copy.deepcopy(first)
+        first_copy.children[0].select()
+        self.assertEqual(len(first_copy.get_selected().children), 1)
+
+    def test_check_filter(self):
+        ''' Filtering structure by input text '''
+        structures = self.generate_example_structure()
+        first = structures[0]
+        second = structures[1]
+        self.assertTrue(first.check_filter('element'))
+        self.assertTrue(first.check_filter('a'))
+        self.assertTrue(first.check_filter('aa'))
+        self.assertTrue(first.check_filter('bb'))
+        self.assertFalse(first.check_filter('cc'))
+        self.assertTrue(second.check_filter('element'))
+        self.assertTrue(second.check_filter('b'))
+        self.assertTrue(second.check_filter('cc'))
+        self.assertFalse(second.check_filter('dd'))
+        
+    def test_get_root_parent(self):
+        ''' Retrieving root parent for element '''
+        nested = {
+            'aa': {
+                'bb': {
+                    'cc': {}
+                }
+            }
+        }
+        x_pos = 0
+        structure = Element.generate_structure(nested, x_pos)
+        first = structure[0]
+        first_child = first.children[0]
+        nested_child = first_child.children[0]
+        self.assertTrue(first.get_root_parent(), first)
+        self.assertTrue(first_child.get_root_parent(), first)
+        self.assertTrue(nested_child.get_root_parent(), first)
