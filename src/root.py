@@ -11,34 +11,81 @@ logger = logger.get_logger()
 class RootFileReader(object):
     def __init__(self, file_path, names_dict_path):
         self.input_file = file_path
-        file = ROOT.TFile.Open(file_path)
-        self.branches = file.CollectionTree.GetListOfBranches()
-        self.global_classes_dict = utils.load_object(names_dict_path)
+        self.data_dict = {}
+        if(names_dict_path):
+            try:
+                self.global_classes_dict = utils.load_object(names_dict_path)
+            except Exception as e:
+                logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(names_dict_path, e.message))
+                self.global_classes_dict = {}
         self.load_input_classes()
         self.splitting_regexp = '[.]'
-        self.load_names_arrays()
+        self.load_data_dict()
 
-    def get_class_name(self, branch):
-        class_name = branch.GetClassName()
-        name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
-        if name in self.input_classes:
-            class_name = self.input_classes[name]
-        elif 'aux' in name or 'Aux' in name or class_name.startswith('vector') or not class_name:
+    def get_class_name(self, obj_name, initial_class_name=''):
+        class_name = initial_class_name
+        if obj_name in self.input_classes:
+            class_name = self.input_classes[obj_name]
+        elif 'aux' in obj_name or 'Aux' in obj_name or class_name.startswith('vector'):
             class_name = 'xAOD::AuxContainerBase'
         elif class_name in self.global_classes_dict:
             class_name = self.global_classes_dict[class_name]
         return re.sub('_v[1-9]', '', class_name)
 
+    def get_class_name_for_branch(self, branch):
+        initial_class_name = branch.GetClassName()
+        name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
+        return self.get_class_name(name, initial_class_name)
+
     def load_names_arrays(self):
-        self.names_arrays =  map(lambda x: re.split(self.splitting_regexp, self.get_class_name(x) + '#' + x.GetName().replace('Dyn', '')), self.branches)
+        file = ROOT.TFile.Open(self.input_file)
+        branches = file.CollectionTree.GetListOfBranches()
+        return map(lambda x: re.split(self.splitting_regexp, self.get_class_name_for_branch(x) + '#' + x.GetName().replace('Dyn', '')), branches)
     
+    def get_full_name(self, obj_name):
+        if obj_name.endswith('.'):
+            obj_name = obj_name[:-1]
+        return self.get_class_name(obj_name) + '#' + obj_name
+
+    def load_data_dict(self):
+        try:
+            read_stats = self.get_stats_from_file(self.input_file)
+            for container in read_stats.containers():
+                obj_name = self.get_full_name(container.first)
+                self.data_dict[obj_name] = None
+            for branch in read_stats.branches():
+                obj_name = self.get_full_name(branch.first)
+                self.data_dict[obj_name] = {}
+                for var in branch.second:
+                    if var:
+                        var_name = re.split(self.splitting_regexp, var.GetName())[1]
+                        self.data_dict[obj_name][var_name] = None
+        except AttributeError as ae:
+            logger.warning('Cannot load readStats. Objects will be loaded by getListOfBranches() function. Reason: {}'.format(ae.message))
+            self.data_dict = utils.generate_data_dict(self.load_names_arrays())
+        
+    def get_stats_from_file(self, path):
+        ROOT.gROOT.ProcessLine(".L getStats.C+")
+        f = ROOT.TFile.Open(path)
+        event = ROOT.xAOD.TEvent()
+        return_code = event.readFrom(f)
+        return_code.isSuccess()
+        read_stats = ROOT.getStats()
+        return read_stats
+
+
     def load_input_classes(self):
         try:
             from AthenaCommon.AthenaCommonFlags import athenaCommonFlags
             athenaCommonFlags.FilesInput = [self.input_file]
             from RecExConfig.InputFilePeeker import inputFileSummary
             logger.info('Reading containers names from input file')
-            itemsdict = inputFileSummary['eventdata_itemsDic']
+            if 'eventdata_itemsDic' in inputFileSummary:
+                itemsdict = inputFileSummary['eventdata_itemsDic']
+            else:
+                self.input_classes = {}
+                logger.warning('Failed to read {} by inputFileSummary. Classes will not be read'.format(self.input_file))
+                return
             classes = {}
             for key in itemsdict:
                 for n in itemsdict[key]:
@@ -68,7 +115,6 @@ class OutputElement(object):
             self.name = self.name.replace('Dyn', '')
 
     def prepare_name(self):
-        # self.remove_dyn_substring()
         if self.is_aux or len(self.children)>0:
             children_string = '.'.join(self.children)
             self.name += '.{}'.format(children_string)

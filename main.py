@@ -46,7 +46,7 @@ if __name__ == '__main__':
     if input_file_path:
         logger.info('Loading data from input file: ' + input_file_path)
         root_reader = RootFileReader(input_file_path, './container_names.pkl')
-        data_dict = utils.generate_data_dict(root_reader.names_arrays)  
+        data_dict = root_reader.data_dict
         data_structures = Element.generate_structure(data_dict, 0)
         initial_chosen_items = set()
     else:
