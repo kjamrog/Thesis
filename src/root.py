@@ -65,7 +65,7 @@ class RootFileReader(object):
             self.data_dict = utils.generate_data_dict(self.load_names_arrays())
         
     def get_stats_from_file(self, path):
-        ROOT.gROOT.ProcessLine(".L getStats.C+")
+        ROOT.gROOT.ProcessLine(".L readStats.C+")
         f = ROOT.TFile.Open(path)
         event = ROOT.xAOD.TEvent()
         return_code = event.readFrom(f)
