@@ -14,12 +14,7 @@ class RootFileReader(object):
         self.input_file = ROOT.TFile.Open(file_path)
         self.data_dict = {}
         self.splitting_regexp = '[.]'
-        if(names_dict_path):
-            try:
-                self.global_classes_dict = utils.load_object(names_dict_path)
-            except Exception as e:
-                logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(names_dict_path, e.message))
-                self.global_classes_dict = {}
+        self.load_global_classes_dict(names_dict_path)
         self.load_input_classes()
         self.load_branches()
         self.load_data_dict()
@@ -69,7 +64,15 @@ class RootFileReader(object):
         except AttributeError as ae:
             logger.warning('Cannot load readStats. Objects will be loaded by getListOfBranches() function. Reason: {}'.format(ae.message))
             self.data_dict = utils.generate_data_dict(self.load_names_arrays())
-        
+
+    def load_global_classes_dict(self, file_path):
+        if file_path:
+            try:
+                self.global_classes_dict = utils.load_object(file_path)
+            except Exception as e:
+                logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(file_path, e.message))
+                self.global_classes_dict = {}       
+
     def get_stats_from_file(self, path):
         ROOT.gROOT.ProcessLine(".L readStats.C+")
         f = ROOT.TFile.Open(path)
