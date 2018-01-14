@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from src.cursesWrapper import GuiLoader, Element
+from src.cursesWrapper import GuiLoader
+import src.element as element
 from src.root import RootFileReader, OutputGenerator
 import src.logger as logging
 import argparse
@@ -47,25 +48,21 @@ if __name__ == '__main__':
         logger.info('Loading data from input file: ' + input_file_path)
         root_reader = RootFileReader(input_file_path, './container_names.pkl')
         data_dict = root_reader.data_dict
-        data_structures = Element.generate_structure(data_dict, 0)
-        initial_chosen_items = set()
+        data_structures = element.Element.generate_structure(data_dict, 0)
     else:
         logger.info('Loading data from pickle file')
         try:
-            initial_data = utils.load_initial_data(pickle_input_file_path)
-            data_structures = initial_data['structures']
-            initial_chosen_items = initial_data['chosen_items']
+            data_structures = utils.load_initial_data(pickle_input_file_path)
         except TypeError as e:
             logger.error('Invalid data in pickle file: {}'.format(e.message))
             exit_app(1)
 
     logger.info('Data loaded. {} elements found'.format(len(data_structures)))
 
-    gui_loader = GuiLoader(data_structures, initial_chosen_items)
-    results = gui_loader.load_gui()
-    # print_results(results)
-    chosen_items = results['chosen_items']
-    output_generator = OutputGenerator(chosen_items)
+    gui_loader = GuiLoader(data_structures)
+    output_structure = gui_loader.load_gui()
+    chosen_items_structure = element.get_selected(output_structure)
+    output_generator = OutputGenerator(chosen_items_structure)
 
     output_file = args.output
     if output_file:  
@@ -78,7 +75,7 @@ if __name__ == '__main__':
     pkl_output = args.pickle
     if pkl_output:
         logger.info('Saving configuration')
-        utils.save_configuration(pkl_output, results['structures'], chosen_items)
+        utils.save_configuration(pkl_output, output_structure)
         logger.info('Configuration saved to file: {}'.format(pkl_output))
     else:
         logger.warning('Missing third argument. Items will not be saved to pickle file')

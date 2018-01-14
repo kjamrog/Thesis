@@ -7,14 +7,13 @@ import curses.textpad
 from root import RootFileReader, OutputElementsDict
 import logger as logging
 import utils
-from element import Element
-import copy
+import element
 
 logger = logging.get_logger()
 
 
 class Pad(object):
-    def __init__(self, data_structures, chosen_items, width, height, start_x=0):
+    def __init__(self, data_structures, width, height, start_x=0):
         self.all_structures = data_structures
         self.width = width
         self.start_x = start_x
@@ -23,7 +22,6 @@ class Pad(object):
         self.pad_height = height - 1
         
         self.initialize_styles()
-        self.chosen_items = chosen_items if chosen_items else set()
         self.initialize_structures()
         self.actual_y = 0
         self.initialize_cursor()
@@ -135,11 +133,9 @@ class Pad(object):
     def select_element(self, y):
         element = self.lines[y]
         element.select()
-        self.chosen_items.add(element)
 
     def diselect_element(self, y):
         element = self.lines[y]
-        self.chosen_items.discard(element)
         element.diselect()
 
     def scroll(self, number):
@@ -196,7 +192,7 @@ class Pad(object):
                 path = path + '.pkl'
             logger.info('Saving configuration')
             try:
-                utils.save_configuration(path, self.all_structures, self.chosen_items)
+                utils.save_configuration(path, self.all_structures)
                 logger.info('Configuration saved to file: {}'.format(path))
             except TypeError as e:
                 logger.error('Error while saving configuration: {}'.format(e.message))
@@ -239,9 +235,8 @@ class DynamicPad(Pad):
 
 class GuiLoader(object):
     
-    def __init__(self, data_structures, chosen_items):
+    def __init__(self, data_structures):
         self.data_structures = data_structures
-        self.initial_chosen_items = chosen_items
         self.width, self.height, self.pad_height = (0, 0, 0)
         self.pad = None
         self.actual_offset = 0
@@ -250,7 +245,7 @@ class GuiLoader(object):
     def __initialize_window(self):
         self.height, self.width = self.screen.getmaxyx()
         self.window = curses.newwin(self.height, self.width, 0, 0)
-        self.pad = Pad(self.data_structures, self.initial_chosen_items, self.width/2-1 , self.height)
+        self.pad = Pad(self.data_structures, self.width/2-1 , self.height)
         self.chosen_items_pad = DynamicPad([], self.width / 2 - 1, self.height, self.width / 2 + 2)
         self.reinit_chosen_items_pad()
         self.actual_pad = self.pad
@@ -260,17 +255,15 @@ class GuiLoader(object):
 
     def __initialize(self, stdscreen):        
         self.screen = stdscreen
-        # curses.initscr() 
         self.screen.refresh()
         self.__initialize_window()
         self.__start_event_loop()
 
     def load_gui(self):
         curses.wrapper(self.__initialize)
-        return {
-            'chosen_items': self.pad.chosen_items,
-            'structures': self.pad.all_structures
-        }
+        return self.data_structures
+        # chosen_elements_structure = element.get_selected(self.data_structures)
+        # return chosen_elements_structure
 
     def search(self):
         search_size = 50
@@ -283,12 +276,7 @@ class GuiLoader(object):
         self.pad.filter(text)
 
     def reinit_chosen_items_pad(self):
-        chosen_items_structure = []
-        structure_copy = copy.deepcopy(self.data_structures)
-        for element in structure_copy:
-            chosen = element.get_selected()
-            if chosen:
-                chosen_items_structure.append(chosen)
+        chosen_items_structure = element.get_selected(self.data_structures)
         self.chosen_items_pad.update_data_structure(chosen_items_structure)
 
     def __start_event_loop(self):

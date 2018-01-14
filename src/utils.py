@@ -8,33 +8,21 @@ def load_object(path):
     return data
 
 def load_initial_data(path):
-    data = load_object(path)
-    if not type(data) is dict:
-        raise TypeError('Data must be a dictionary')
-    structures = data['structures']
+    structures = load_object(path)
     if not type(structures) is list:
         raise TypeError('Structures must be list of Element')
-    chosen_items = data['chosen_items']
-    if not type(chosen_items) is set:
-        raise TypeError('Chosen items must be set')
     for el in structures:
         if not isinstance(el, Element):
             raise TypeError('All items in list must be of type Element')
-    return data
+    return structures
 
-def save_configuration(path, structures, chosen_items):
+def save_configuration(path, structures):
     if not type(structures) is list:
         raise TypeError('Structures must be list of Element')
-    if not type(chosen_items) is set:
-        raise TypeError('Chosen items must be set')
     for el in structures:
         if not isinstance(el, Element):
             raise TypeError('All items in list must be of type Element')
-    data_to_save = {
-        'structures': structures,
-        'chosen_items': chosen_items
-    }
-    save_object(path, data_to_save)
+    save_object(path, structures)
 
 def save_object(path, data):
     output = open(path, 'wb')

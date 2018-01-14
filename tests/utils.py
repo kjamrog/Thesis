@@ -48,14 +48,11 @@ class UtilsTests(unittest.TestCase):
     def test_saving_and_loading_configuration(self):
         ''' Saves and loads elements array '''
         path = '/tmp/saving_test.pkl'
-        chosen_items = set()
         data_dict =  self.get_test_dict()
         structures = Element.generate_structure(data_dict, 0)
         structures[0].select()
-        chosen_items.add(structures[0])
-        utils.save_configuration(path, structures, chosen_items)
-        read_data = utils.load_initial_data(path)
-        read_structures = read_data['structures']
+        utils.save_configuration(path, structures)
+        read_structures = utils.load_initial_data(path)
         for i in range(len(read_structures)):
             self.assertEqual(read_structures[i].name, structures[i].name)
             self.assertEqual(read_structures[i].selected, structures[i].selected)
@@ -69,8 +66,7 @@ class UtilsTests(unittest.TestCase):
         ''' Fails for invalid elements list '''
         path = '/tmp/saving_test.pkl'
         data = ['aa', 'bb', 'cc']
-        chosen_items = set()
-        utils.save_configuration(path, data, chosen_items)
+        utils.save_configuration(path, data)
 
     @unittest.expectedFailure
     def test_invalid_configuration_load(self):
