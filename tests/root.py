@@ -1,6 +1,6 @@
 import unittest
 from src.root import OutputElement, OutputGenerator
-from src.element import Element
+import src.element as element
 
 
 class OutputElementTests(unittest.TestCase):
@@ -61,12 +61,12 @@ class OutputGeneratorTests(unittest.TestCase):
 
     def test_save_to_output_file(self):
         ''' Generates output python script from set of chosen items '''
-        structures = Element.generate_structure(self.get_test_dict(), 0)
-        chosen_items = set()
-        chosen_items.add(structures[0].children[0])
-        chosen_items.add(structures[0].children[1])
-        chosen_items.add(structures[1])
-        output_generator = OutputGenerator(chosen_items)
+        structures = element.Element.generate_structure(self.get_test_dict(), 0)
+        structures[0].children[0].select()
+        structures[0].children[1].select()
+        structures[1].select()
+        selected_items_structure = element.get_selected(structures)
+        output_generator = OutputGenerator(selected_items_structure)
         path = '/tmp/output.py'
         output_generator.save_to_output_file(path)
         with open(path) as f:

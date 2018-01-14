@@ -88,3 +88,13 @@ class Element(object):
         structure = Element.create_elements_structure(d, x_pos)
         structure.sort(key=lambda x: x.name)
         return structure
+
+
+def get_selected(structure):
+    chosen_items_structure = []
+    structure_copy = copy.deepcopy(structure)
+    for element in structure_copy:
+        chosen = element.get_selected()
+        if chosen:
+            chosen_items_structure.append(chosen)
+    return chosen_items_structure

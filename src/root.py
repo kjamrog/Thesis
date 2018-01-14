@@ -10,8 +10,10 @@ logger = logger.get_logger()
 
 class RootFileReader(object):
     def __init__(self, file_path, names_dict_path):
-        self.input_file = file_path
+        self.input_file_path = file_path
+        self.input_file = ROOT.TFile.Open(file_path)
         self.data_dict = {}
+        self.splitting_regexp = '[.]'
         if(names_dict_path):
             try:
                 self.global_classes_dict = utils.load_object(names_dict_path)
@@ -19,11 +21,11 @@ class RootFileReader(object):
                 logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(names_dict_path, e.message))
                 self.global_classes_dict = {}
         self.load_input_classes()
-        self.splitting_regexp = '[.]'
+        self.load_branches()
         self.load_data_dict()
 
-    def get_class_name(self, obj_name, initial_class_name=''):
-        class_name = initial_class_name
+    def get_class_name(self, obj_name):
+        class_name = self.branches_classes[obj_name]
         if obj_name in self.input_classes:
             class_name = self.input_classes[obj_name]
         elif 'aux' in obj_name or 'Aux' in obj_name or class_name.startswith('vector'):
@@ -33,14 +35,18 @@ class RootFileReader(object):
         return re.sub('_v[1-9]', '', class_name)
 
     def get_class_name_for_branch(self, branch):
-        initial_class_name = branch.GetClassName()
         name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
-        return self.get_class_name(name, initial_class_name)
+        return self.get_class_name(name)
+
+    def load_branches(self):
+        self.branches_list = self.input_file.CollectionTree.GetListOfBranches()
+        self.branches_classes = {}
+        for branch in self.branches_list:
+            branch_name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
+            self.branches_classes[branch_name] = branch.GetClassName()
 
     def load_names_arrays(self):
-        file = ROOT.TFile.Open(self.input_file)
-        branches = file.CollectionTree.GetListOfBranches()
-        return map(lambda x: re.split(self.splitting_regexp, self.get_class_name_for_branch(x) + '#' + x.GetName().replace('Dyn', '')), branches)
+        return map(lambda x: re.split(self.splitting_regexp, self.get_class_name_for_branch(x) + '#' + x.GetName().replace('Dyn', '')), self.branches_list)
     
     def get_full_name(self, obj_name):
         if obj_name.endswith('.'):
@@ -49,7 +55,7 @@ class RootFileReader(object):
 
     def load_data_dict(self):
         try:
-            read_stats = self.get_stats_from_file(self.input_file)
+            read_stats = self.get_stats_from_file(self.input_file_path)
             for container in read_stats.containers():
                 obj_name = self.get_full_name(container.first)
                 self.data_dict[obj_name] = None
@@ -73,18 +79,17 @@ class RootFileReader(object):
         read_stats = ROOT.getStats()
         return read_stats
 
-
     def load_input_classes(self):
         try:
             from AthenaCommon.AthenaCommonFlags import athenaCommonFlags
-            athenaCommonFlags.FilesInput = [self.input_file]
+            athenaCommonFlags.FilesInput = [self.input_file_path]
             from RecExConfig.InputFilePeeker import inputFileSummary
             logger.info('Reading containers names from input file')
             if 'eventdata_itemsDic' in inputFileSummary:
                 itemsdict = inputFileSummary['eventdata_itemsDic']
             else:
                 self.input_classes = {}
-                logger.warning('Failed to read {} by inputFileSummary. Classes will not be read'.format(self.input_file))
+                logger.warning('Failed to read {} by inputFileSummary. Classes will not be read'.format(self.input_file_path))
                 return
             classes = {}
             for key in itemsdict:
@@ -115,7 +120,7 @@ class OutputElement(object):
             self.name = self.name.replace('Dyn', '')
 
     def prepare_name(self):
-        if self.is_aux or len(self.children)>0:
+        if self.is_aux or len(self.children) > 0:
             children_string = '.'.join(self.children)
             self.name += '.{}'.format(children_string)
 
@@ -127,42 +132,22 @@ class OutputElement(object):
         return names
 
 class OutputElementsDict(object):
-    def __init__(self, items):
+    def __init__(self, chosen_elements_structure):
         self.elements_dict = {}
-        if items:
-            for item in items:
-                self.add_element(item)    
-
-    def add_element(self, element):
-        if not element.parent:
-            self.elements_dict[element.name] = OutputElement(element.name)
-        else:
-            p = element.parent
-            while p.parent:
-                p = p.parent
-            if p.name in self.elements_dict:
-                self.elements_dict[p.name].add_child(element.name)
-            else:
-                new_element = OutputElement(p.name)
-                new_element.add_child(element.name)
-                self.elements_dict[p.name] = new_element
+        for element in chosen_elements_structure:
+            output_element = OutputElement(element.name)
+            if not element.selected:
+                for child in element.children:
+                    output_element.add_child(child.name)
+            self.elements_dict[element.name] = output_element 
                 
     def get_elements(self):
         elems =  [value.get_names() for (key, value) in self.elements_dict.iteritems()]
         return elems
 
-    def get_as_plain_dict(self):
-        output = {}
-        for element_name, element in self.elements_dict.iteritems():
-            output[element_name] = {}
-            for child in element.children:
-                output[element_name][child] = {}
-        return output
-
 class OutputGenerator(object):
-    def __init__(self, items):
-        self.items = items
-        self.elements_dict = OutputElementsDict(items)
+    def __init__(self, chosen_elements_structure):
+        self.elements_dict = OutputElementsDict(chosen_elements_structure)
 
     def generate_beginning_lines(self):
         return ['obj = MSMgr.GetStream(0)', 'del obj.GetItems()[:]']
