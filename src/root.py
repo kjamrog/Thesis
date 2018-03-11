@@ -16,7 +16,7 @@ class RootFileReader(object):
         self.splitting_regexp = '[.]'
         self.load_global_classes_dict(names_dict_path)
         self.load_input_classes()
-        self.load_branches()
+        self.load_branches_with_size()
         self.load_data_dict()
 
     def get_class_name(self, obj_name):
@@ -33,11 +33,16 @@ class RootFileReader(object):
         name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
         return self.get_class_name(name)
 
-    def load_branches(self):
+    def load_branches_with_size(self):
         self.branches_list = self.input_file.CollectionTree.GetListOfBranches()
         self.branches_classes = {}
+        self.size_dict = {}
         for branch in self.branches_list:
-            branch_name = re.split(self.splitting_regexp, branch.GetName().replace('Dyn', ''))[0]
+            name = branch.GetName().replace('Dyn', '')
+            if name.endswith('.'):
+                name = name[:-1]
+            self.size_dict[name] = branch.GetTotBytes()
+            branch_name = re.split(self.splitting_regexp, name)[0]
             self.branches_classes[branch_name] = branch.GetClassName()
 
     def load_names_arrays(self):

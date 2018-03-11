@@ -1,6 +1,6 @@
 import unittest
 import src.utils as utils
-from src.element import Element
+from src.element import StructureGenerator
 
 class UtilsTests(unittest.TestCase):
 
@@ -49,7 +49,7 @@ class UtilsTests(unittest.TestCase):
         ''' Saves and loads elements array '''
         path = '/tmp/saving_test.pkl'
         data_dict =  self.get_test_dict()
-        structures = Element.generate_structure(data_dict, 0)
+        structures = StructureGenerator({}).generate(data_dict, 0)
         structures[0].select()
         utils.save_configuration(path, structures)
         read_structures = utils.load_initial_data(path)

@@ -1,9 +1,12 @@
 import unittest
 import random
 import copy
-from src.element import Element
+from src.element import Element, StructureGenerator
 
 class ElementTests(unittest.TestCase):
+
+    def setUp(self):
+        self.structure_generator = StructureGenerator({})
 
     def get_example_dict(self):
         return {
@@ -19,7 +22,7 @@ class ElementTests(unittest.TestCase):
     def generate_example_structure(self):
         x_pos = 0
         d = self.get_example_dict()
-        return Element.generate_structure(d, x_pos)
+        return self.structure_generator.generate(d, x_pos)
 
     def test_init(self):
         ''' Element object initialization '''
@@ -44,7 +47,7 @@ class ElementTests(unittest.TestCase):
         ''' Creating structure from dict '''
         x_position = random.randint(0, 10)
         d = self.get_example_dict()
-        structures = Element.generate_structure(d, x_position)
+        structures = self.structure_generator.generate(d, x_position)
         element = structures[0]
         self.assertEqual(element.name, 'a_element')
         self.assertEqual(element.x_pos, x_position)
@@ -115,7 +118,7 @@ class ElementTests(unittest.TestCase):
             }
         }
         x_pos = 0
-        structure = Element.generate_structure(nested, x_pos)
+        structure = self.structure_generator.generate(nested, x_pos)
         first = structure[0]
         first_child = first.children[0]
         nested_child = first_child.children[0]
