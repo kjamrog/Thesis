@@ -317,7 +317,7 @@ class GuiLoader(object):
         starty = self.height - info_height
         cursor_pos = curses.getsyx()
         size_info_modal = InfoModal(startx, starty, info_width, info_height, message_lines)
-        self.refresh_all()
+        self.refresh_whole_screen()
         curses.setsyx(cursor_pos[0], cursor_pos[1])
 
     def __start_event_loop(self):
