@@ -33,16 +33,9 @@ class Pad(object):
         normal = curses.A_NORMAL  # coloring for a non highlighted menu option
         self.styles = {'normal': normal, 'highlighted': highlighted}
 
-
     def initialize_structures(self):
-        # self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
         self.structures = self.all_structures[:]
         self.draw_all_structures()
-
-        # # Select all structures (to be removed)
-        # for i in self.structures:
-        #     i.selected = True
-        #     self.chosen_items.add(i)
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
@@ -230,7 +223,7 @@ class DynamicPad(Pad):
     def get_mark_character(self, structure):
         return ' '
         
-    def update_selection():
+    def update_selection(self):
         pass
 
     def save_data(self, path):
@@ -309,7 +302,7 @@ class GuiLoader(object):
         message_lines = [
             'Summary size: {} bytes '.format(self.summary_size),
             'Selected items size: {} bytes'.format(selected_items_size),
-            'Percentage: {0:.2f}'.format(size_percentage)
+            'Percentage: {0:.2f} %'.format(size_percentage)
         ]
         info_height = len(message_lines) + 2
         info_width = len(max(message_lines, key = lambda line: len(line))) + 2

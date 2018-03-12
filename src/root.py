@@ -71,12 +71,12 @@ class RootFileReader(object):
             self.data_dict = utils.generate_data_dict(self.load_names_arrays())
 
     def load_global_classes_dict(self, file_path):
+        self.global_classes_dict = {}
         if file_path:
             try:
                 self.global_classes_dict = utils.load_object(file_path)
             except Exception as e:
-                logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(file_path, e.message))
-                self.global_classes_dict = {}       
+                logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(file_path, e))     
 
     def get_stats_from_file(self, path):
         ROOT.gROOT.ProcessLine(".L readStats.C+")
@@ -139,6 +139,7 @@ class OutputElement(object):
             names.append(self.split_char.join((self.aux_base_container, self.name)))
         return names
 
+
 class OutputElementsDict(object):
     def __init__(self, chosen_elements_structure):
         self.elements_dict = {}
@@ -152,6 +153,7 @@ class OutputElementsDict(object):
     def get_elements(self):
         elems =  [value.get_names() for (key, value) in self.elements_dict.iteritems()]
         return elems
+
 
 class OutputGenerator(object):
     def __init__(self, chosen_elements_structure):
@@ -178,6 +180,3 @@ class OutputGenerator(object):
         file = open(file_path, 'w')
         file.write('\n'.join(lines) + '\n')
         file.close()
-    
-    def save_items_to_pkl_file(self, file_path):
-        utils.save_object(file_path, map(lambda x: x.name, self.items))

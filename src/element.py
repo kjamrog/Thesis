@@ -22,7 +22,6 @@ class Element(object):
             return True
         for child in self.children:
             if child.check_filter(filter_text):
-                # self.show_children = True
                 return True
         return False
 
@@ -35,27 +34,28 @@ class Element(object):
             return ' '
 
     def select(self):
-        self.selected = True
-        element = self
-        while element.parent and (element.selected or element.selected_children_number > 0):
-            parent = element.parent
-            parent.selected_children_number += 1
-            element = parent
+        if not self.selected:     
+            self.selected = True
+            element = self
+            while element.parent and (element.selected or element.selected_children_number > 0):
+                parent = element.parent
+                parent.selected_children_number += 1
+                element = parent
 
     def diselect(self):
-        self.selected = False
-        element = self
-        while element.parent and (not element.selected or element.selected_children_number == 0):
-            parent = element.parent
-            parent.selected_children_number -= 1
-            element = parent
+        if self.selected:
+            self.selected = False
+            element = self
+            while element.parent and (not element.selected or element.selected_children_number == 0):
+                parent = element.parent
+                parent.selected_children_number -= 1
+                element = parent
 
     def add_child(self, child, size = 0.0):
         if type(child) is str:
             child = Element(child, self.x_pos + 3, self)
             child.set_size(size)
         self.children.append(child)
-
 
     def get_selected(self):
         self.show_children = False
@@ -94,8 +94,7 @@ class Element(object):
 
 
 
-class StructureGenerator(object):
-        
+class StructureGenerator(object):   
     def __init__(self, size_dict):
         self.size_dict = size_dict
 
