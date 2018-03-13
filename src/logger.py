@@ -3,7 +3,7 @@
  
 import logging
 
-logging_file = 'run.log'
+logging_file = 'xAODBrowser.run.log'
 
 def clean_file(filename):
     with open(filename, 'w'):

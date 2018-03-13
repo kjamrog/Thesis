@@ -1,11 +1,12 @@
 import unittest
+import os
 import src.logger as logging
 
 class LoggerTests(unittest.TestCase):
     
     def test_setup(self):
-        ''' Saves logs to file run.log '''
-        logs_file = 'run.log'
+        ''' Saves logs to file xAODBrowser.run.log '''
+        logs_file = 'xAODBrowser.run.log'
         logging.setup()
         with open(logs_file) as f:
             lines = f.readlines()
@@ -20,3 +21,9 @@ class LoggerTests(unittest.TestCase):
             self.assertTrue('info_message' in lines[0])
             self.assertTrue('[ERROR]' in lines[1])
             self.assertTrue('error_message' in lines[1])
+
+    def tearDown(self):
+        try:
+            os.unlink('xAODBrowser.run.log')
+        except Exception as e:
+            pass

@@ -337,12 +337,13 @@ class GuiLoader(object):
                 b_startx = (self.width/2) - (input_size/2)
                 b_width = input_size
                 b_height = 10
+                cursor_pos = curses.getsyx()
                 input_modal = InputModal(b_startx, b_starty, b_width, b_height, 'Provide path')
                 path = input_modal.get_input()
                 self.pad.save_data(path)
                 input_modal.destroy()
                 self.refresh_whole_screen()
-                self.actual_pad.redraw()
+                curses.setsyx(cursor_pos[0], cursor_pos[1])
 
             elif event == ord('i'):
                 self.show_size_info()

@@ -1,7 +1,10 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 
+# Copyright (C) 2002-2017 CERN for the benefit of the ATLAS collaboration
+
 import re
+import os
 import ROOT
 import logger
 import utils
@@ -41,7 +44,7 @@ class RootFileReader(object):
             name = branch.GetName().replace('Dyn', '')
             if name.endswith('.'):
                 name = name[:-1]
-            self.size_dict[name] = branch.GetTotBytes()
+            self.size_dict[name] = branch.GetZipBytes()
             branch_name = re.split(self.splitting_regexp, name)[0]
             self.branches_classes[branch_name] = branch.GetClassName()
 
@@ -79,7 +82,9 @@ class RootFileReader(object):
                 logger.warning('Data from file {} cannot be retrieved. Reason: {}'.format(file_path, e))     
 
     def get_stats_from_file(self, path):
-        ROOT.gROOT.ProcessLine(".L readStats.C+")
+        import_util = ReadStatsImportUtil()
+        import_util.load_read_stats()
+        import_util.cleanup()
         f = ROOT.TFile.Open(path)
         event = ROOT.xAOD.TEvent()
         return_code = event.readFrom(f)
@@ -180,3 +185,54 @@ class OutputGenerator(object):
         file = open(file_path, 'w')
         file.write('\n'.join(lines) + '\n')
         file.close()
+
+
+class ReadStatsImportUtil(object):
+    
+    def __init__(self):
+        self.dir_path = os.path.abspath(os.path.dirname(__file__))
+
+    def __get_path(self, filename):
+        return os.path.join(self.dir_path, filename)
+
+    def __generate_unique_path(self):
+        ext = '.C'
+        start_name = 'readStats';
+        number = 1
+        self.path = self.__get_path(start_name + str(number) + ext)
+        while os.path.exists(self.path):
+            number += 1
+            logger.info('increasing number')
+            self.path = self.__get_path(start_name + str(number) + ext)
+        self.filename = self.path[:-2]
+
+    def __generate_cpp_file(self):
+        lines = [
+            '#include <iostream>',
+            '#include <xAODCore/tools/IOStats.h>',
+            '#include <xAODCore/tools/ReadStats.h>',
+            'xAOD::ReadStats& getStats() {',
+            'return xAOD::IOStats::instance().stats();',
+            '}'
+        ]
+        self.__generate_unique_path()
+        file = open(self.path, 'w')
+        file.write('\n'.join(lines) + '\n')
+        file.close()
+
+    def load_read_stats(self):
+        self.__generate_cpp_file()
+        ROOT.gROOT.ProcessLine('.L {}+'.format(self.path))
+
+    def cleanup(self):
+        extensions = [
+            '_C.so',
+            '_C_ACLiC_dict_rdict.pcm',
+            '_C.d',
+            '.C'
+        ]
+        for ext in extensions:
+            try:
+                os.unlink(self.filename + ext)        
+            except Exception as e:
+                logger.error(e)
