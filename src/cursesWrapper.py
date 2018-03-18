@@ -33,16 +33,9 @@ class Pad(object):
         normal = curses.A_NORMAL  # coloring for a non highlighted menu option
         self.styles = {'normal': normal, 'highlighted': highlighted}
 
-
     def initialize_structures(self):
-        # self.all_structures = Element.generate_structure(self.data_dict, self.start_x)
         self.structures = self.all_structures[:]
         self.draw_all_structures()
-
-        # # Select all structures (to be removed)
-        # for i in self.structures:
-        #     i.selected = True
-        #     self.chosen_items.add(i)
 
     def initialize_cursor(self):
         # Highlight cursor on initial position
@@ -93,11 +86,11 @@ class Pad(object):
         actual_character = self.get_character(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1)
         if reinit_cursor:
             self.actual_offset = 0
+            self.actual_y = 0
             self.initialize_cursor()
         else:
-            self.actual_y = cursor_pos[0] + self.actual_offset
-            self.pad.move(cursor_pos[0] + self.actual_offset, cursor_pos[1])
-            self.pad.addch(cursor_pos[0] + self.actual_offset, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
+            self.pad.move(self.actual_y, cursor_pos[1])
+            self.pad.addch(self.actual_y, cursor_pos[1] - 1, actual_character, self.styles['highlighted'])
         self.refresh()
 
     def hide_cursor(self):
@@ -145,6 +138,8 @@ class Pad(object):
         self.refresh()
 
     def update_selection(self):
+        if self.actual_y >= len(self.lines):
+            return
         element = self.lines[self.actual_y]
         if element.selected:
             self.diselect_element(self.actual_y)
@@ -168,7 +163,7 @@ class Pad(object):
                 if cursor_pos[0] < 4 and self.actual_offset > 0:
                     self.scroll(-1)
 
-        if event == ord('i'):
+        if event == ord('e'):
             element = self.lines[self.actual_y]
             if not element.show_children:
                 element.show_children = True
@@ -221,12 +216,14 @@ class DynamicPad(Pad):
             self.hide_cursor()
         except:
             pass
-        
+
+    def get_items_size(self):
+        return element.Element.get_structure_size(self.all_structures)
 
     def get_mark_character(self, structure):
         return ' '
         
-    def update_selection():
+    def update_selection(self):
         pass
 
     def save_data(self, path):
@@ -235,8 +232,9 @@ class DynamicPad(Pad):
 
 class GuiLoader(object):
     
-    def __init__(self, data_structures):
+    def __init__(self, data_structures, summary_size):
         self.data_structures = data_structures
+        self.summary_size = summary_size
         self.width, self.height, self.pad_height = (0, 0, 0)
         self.pad = None
         self.actual_offset = 0
@@ -262,8 +260,6 @@ class GuiLoader(object):
     def load_gui(self):
         curses.wrapper(self.__initialize)
         return self.data_structures
-        # chosen_elements_structure = element.get_selected(self.data_structures)
-        # return chosen_elements_structure
 
     def search(self):
         search_size = 50
@@ -271,13 +267,51 @@ class GuiLoader(object):
         b_startx = self.width - search_size
         b_width = search_size
         b_height = 3
+        cursor_pos = curses.getsyx()
         search = SearchModal(b_startx, b_starty, b_width, b_height)
         text = search.edit()
+        curses.setsyx(cursor_pos[0], cursor_pos[1])
+        if self.actual_pad != self.pad:
+            self.change_actual_pad()
         self.pad.filter(text)
 
     def reinit_chosen_items_pad(self):
         chosen_items_structure = element.get_selected(self.data_structures)
         self.chosen_items_pad.update_data_structure(chosen_items_structure)
+
+    def refresh_all(self):
+        self.actual_pad.refresh()
+        self.inactive_pad.refresh()
+
+    def refresh_whole_screen(self):
+        refresh_window = curses.newwin(self.height, self.width, 0, 0)
+        refresh_window.refresh()
+        self.refresh_all()
+
+    def change_actual_pad(self):
+        if len(self.inactive_pad.all_structures) == 0:
+            return
+        self.actual_pad.hide_cursor()
+        self.actual_pad, self.inactive_pad = self.inactive_pad, self.actual_pad
+        self.actual_pad.refresh()
+        self.actual_pad.show_cursor()
+
+    def show_size_info(self):
+        selected_items_size = self.chosen_items_pad.get_items_size()
+        size_percentage = (float(selected_items_size) / float(self.summary_size)) * 100.0
+        message_lines = [
+            'Summary size: {} bytes '.format(self.summary_size),
+            'Selected items size: {} bytes'.format(selected_items_size),
+            'Percentage: {0:.2f} %'.format(size_percentage)
+        ]
+        info_height = len(message_lines) + 2
+        info_width = len(max(message_lines, key = lambda line: len(line))) + 2
+        startx = self.width - info_width
+        starty = self.height - info_height
+        cursor_pos = curses.getsyx()
+        size_info_modal = InfoModal(startx, starty, info_width, info_height, message_lines)
+        self.refresh_whole_screen()
+        curses.setsyx(cursor_pos[0], cursor_pos[1])
 
     def __start_event_loop(self):
         while True:
@@ -292,12 +326,7 @@ class GuiLoader(object):
                     self.pad.refresh()
 
             elif event == ord('\t'):
-                if len(self.inactive_pad.all_structures) == 0:
-                    continue
-                self.actual_pad.hide_cursor()
-                self.actual_pad, self.inactive_pad = self.inactive_pad, self.actual_pad
-                self.actual_pad.refresh()
-                self.actual_pad.show_cursor()
+                self.change_actual_pad()
 
             elif event == ord('f'):
                 self.search()
@@ -308,12 +337,16 @@ class GuiLoader(object):
                 b_startx = (self.width/2) - (input_size/2)
                 b_width = input_size
                 b_height = 10
+                cursor_pos = curses.getsyx()
                 input_modal = InputModal(b_startx, b_starty, b_width, b_height, 'Provide path')
                 path = input_modal.get_input()
                 self.pad.save_data(path)
-                self.window.refresh()
-                self.actual_pad.refresh()
-                self.inactive_pad.refresh()
+                input_modal.destroy()
+                self.refresh_whole_screen()
+                curses.setsyx(cursor_pos[0], cursor_pos[1])
+
+            elif event == ord('i'):
+                self.show_size_info()
 
             else:
                 self.actual_pad.handle_event(event)
@@ -362,3 +395,14 @@ class InputModal(Modal):
 
     def get_input(self):
         return self.input.edit().strip()
+
+
+class InfoModal(Modal):
+    def __init__(self, start_x, start_y, width, height, message_lines):
+        super(InfoModal, self).__init__(start_x, start_y, width, height)
+        line_y = 1
+        for line in message_lines:
+            self.window.addstr(line_y, 1, line, curses.A_NORMAL)
+            line_y += 1
+        self.refresh()
+        self.window.getch()

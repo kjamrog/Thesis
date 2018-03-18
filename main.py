@@ -3,7 +3,7 @@
 
 import sys
 from src.cursesWrapper import GuiLoader
-import src.element as element
+from src.element import StructureGenerator, Element, get_selected
 from src.root import RootFileReader, OutputGenerator
 import src.logger as logging
 import argparse
@@ -48,7 +48,9 @@ if __name__ == '__main__':
         logger.info('Loading data from input file: ' + input_file_path)
         root_reader = RootFileReader(input_file_path, './container_names.pkl')
         data_dict = root_reader.data_dict
-        data_structures = element.Element.generate_structure(data_dict, 0)
+        size_dict = root_reader.size_dict
+        structure_generator = StructureGenerator(size_dict)
+        data_structures = structure_generator.generate(data_dict, 0)
     else:
         logger.info('Loading data from pickle file')
         try:
@@ -59,9 +61,10 @@ if __name__ == '__main__':
 
     logger.info('Data loaded. {} elements found'.format(len(data_structures)))
 
-    gui_loader = GuiLoader(data_structures)
+    summary_structure_size = Element.get_structure_size(data_structures)
+    gui_loader = GuiLoader(data_structures, summary_structure_size)
     output_structure = gui_loader.load_gui()
-    chosen_items_structure = element.get_selected(output_structure)
+    chosen_items_structure = get_selected(output_structure)
     output_generator = OutputGenerator(chosen_items_structure)
 
     output_file = args.output
